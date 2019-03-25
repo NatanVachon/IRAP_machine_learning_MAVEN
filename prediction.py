@@ -92,12 +92,6 @@ def compute_direction(first_part, last_part):
     mean_sw_vel_2 = np.mean(last_part["SWIA_vel_x"])
     print('sw_vel_2 = ' + str(mean_sw_vel_2))
 
-#    if mean_deriv_r_1 > 0 and mean_deriv_r_2 > 0 and mean_sw_vel_1 > SOLAR_WIND_THRESHOLD and mean_sw_vel_2 <= SOLAR_WIND_THRESHOLD:
-#        return 0
-#    elif mean_deriv_r_1 < 0 and mean_deriv_r_2 < 0 and mean_sw_vel_1 <= SOLAR_WIND_THRESHOLD and mean_sw_vel_2 > SOLAR_WIND_THRESHOLD:
-#        return 2
-#    else:
-#        return 1
     if mean_sw_vel_1 - mean_sw_vel_2 > SOLAR_WIND_DELTA_THRESHOLD:
         return 0
     elif mean_sw_vel_1 - mean_sw_vel_2 < SOLAR_WIND_DELTA_THRESHOLD:

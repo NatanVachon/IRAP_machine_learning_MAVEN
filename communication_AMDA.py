@@ -21,7 +21,7 @@ TOKEN_URL = "http://amda.irap.omp.eu/php/rest/auth.php"
 SAMPLING_TIME = 4 #s
 
 # Saving paths
-SAVING_PATH = "d:/natan/Documents/IRAP/Data/datasets/"
+SAVE_PATH = "d:/natan/Documents/IRAP/Data/datasets/"
 
 """
 Returns a valid token to connect to AMDA
@@ -107,6 +107,17 @@ def download_multiparam_df(start_time, end_time, param_list, param_col_names):
     return complete
 
 """
+Saves a pandas.DataFrame() to a certain path
+"""
+def save_df(dataset, path, name):
+    saved_df = dataset.copy()
+    # Convert strings to float timestamps
+    for i in range(saved_df.count()[0]):
+        saved_df['epoch'].at[i] = pd.Timestamp(saved_df['epoch'].at[i]).timestamp()
+    # Save data
+    saved_df.to_csv(path + name + '.txt', encoding = 'utf-8', index = False)
+
+"""
 Main function definition
 """
 # Dates
@@ -117,7 +128,4 @@ PARAMETER_NAMES = ["ws_0", "ws_1", "mav_bkp_mso", "ws_2", "ws_3", "mav_swiakp_vm
 PARAMETER_COLS = [["epoch", "rho"], ["epoch", "deriv_r"], ["epoch", "mag_x", "mag_y", "mag_z"], ["epoch", "totels_1"], ["epoch", "totels_8"], ["epoch", "SWIA_vel_x", "SWIA_vel_y", "SWIA_vel_z"]]
 
 if __name__ == "__main__" :
-#    AMDA_df = download_single_df(BEGIN_DATE, END_DATE, "mav_bkp_mso")
-    AMDA_df = download_multiparam_df(BEGIN_DATE, END_DATE, PARAMETER_NAMES, param_col_names = PARAMETER_COLS)
-    path = SAVING_PATH + "maven_" + str(pd.to_datetime(BEGIN_DATE).date()) + '.txt'
-    AMDA_df.to_csv(path, encoding = 'utf-8', index = False)
+    print('main AMDA')

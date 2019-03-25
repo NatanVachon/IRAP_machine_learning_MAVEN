@@ -14,6 +14,50 @@ from tensorflow.keras.layers import Dropout
 import keras.backend as B
 from sklearn.preprocessing import StandardScaler
 
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+                                                   CONSTANTS DEFINITION
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+# DEFAULT PARAMETERS
+TRAIN_FROM_EXISTING = False
+
+FEATURE_NB = 10
+CLASS_NB = 3
+EPOCHS_NB = 3
+BATCH_SIZE = 256
+TEST_SIZE = 0.3
+
+LAYERS_SIZES = [FEATURE_NB, 66, 22, CLASS_NB]
+LAYERS_ACTIVATIONS = ['relu', 'relu', 'tanh', 'softmax']
+
+LOAD_MODEL_PATH = '../Data/models/last_model.h5'
+SAVE_MODEL_PATH = '../Data/models/last_model.h5'
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+                                                   FUNCTIONS DEFINITION
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+"""
+Function training a neural network according to some parameters and dataset
+
+Inputs:
+    pandas.DataFrame()[] List of: X_train, X_test, y_train, y_test (preprocessed)
+    int[]                List of layers sizes
+    activation[]         List of layers activation
+    int                  Number of epoch
+    int                  Batch size
+    float                Test proportion (between 0 and 1)
+"""
+def run_training(datasets, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB,
+                 batch_size = BATCH_SIZE, test_size = TEST_SIZE):
+    if TRAIN_FROM_EXISTING:
+        ANN = load_model(LOAD_MODEL_PATH)
+    else:
+        ANN = create_model(layers_sizes, layers_activations)
+    compile_and_fit(ANN, datasets[0], datasets[2], epochs_nb, batch_size)
+    save_model(SAVE_MODEL_PATH, ANN)
+    return ANN
+
 """
 Creates a keras model
 Arguments:
@@ -133,13 +177,6 @@ def compile_and_fit(model, X_train, y_train, n_epochs, b_s, val_size=0, loss_nam
     model.compile(optimizer = 'adam', loss = [loss_name], metrics = ['acc'])
     training = model.fit(X_train, y_train, validation_split = val_size, epochs = n_epochs, batch_size = b_s, verbose = 1)
     return training
-
-"""
-Get an untimed vector of predictions from a test set
-"""
-def get_pred(model, X_test):
-    y_pred = model.predict_classes(X_test)
-    return y_pred
 
 """
 Get a timed vector of predictions from the test set
