@@ -10,6 +10,7 @@ train NNs.
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import ruptures as rpt
 
 """
 Detection parameters
@@ -36,10 +37,8 @@ Returns:
 def predict_file(data):
     # Fill nan values with median values
     data = fill_nan_values(data)
-    # Compute smoothed energy
-    smoothed_totels = moving_average(np.nan_to_num(np.array(data["totels_1"])), MOVING_AVERAGE_NB)
     # Compute shock boundaries
-    begin_shock, end_shock = compute_boundary_indexes(smoothed_totels, SHOCK_TOTELS_THRESHOLD_RATIO)
+    begin_shock, end_shock = compute_boundary_indexes(data)
     # Split data in three parts
     first_part = data.iloc[:begin_shock].copy()
     last_part = data.iloc[end_shock:].copy()
@@ -83,10 +82,6 @@ Returns:
     2 if descending
 """
 def compute_direction(first_part, last_part):
-#    mean_deriv_r_1 = np.mean(first_part["deriv_r"])
-##    print('der_r_1 = ' + str(mean_deriv_r_1))
-#    mean_deriv_r_2 = np.mean(last_part["deriv_r"])
-##    print('der_r_2 = ' + str(mean_deriv_r_2))
     mean_sw_vel_1 = np.mean(first_part["SWIA_vel_x"])
     print('sw_vel_1 = ' + str(mean_sw_vel_1))
     mean_sw_vel_2 = np.mean(last_part["SWIA_vel_x"])
@@ -107,20 +102,13 @@ Argument:
     pandas.DataFrame() containing data for several timestamps
 """
 def plot_variables(data):
-    time = pd.to_datetime(data["epoch"])
-    smoothed_totels = moving_average(np.nan_to_num(np.array(data["totels_1"])), MOVING_AVERAGE_NB)
-    begin_shock, end_shock = compute_boundary_indexes(smoothed_totels, SHOCK_TOTELS_THRESHOLD_RATIO)
+    begin_shock, end_shock = compute_boundary_indexes(data)
 
     # raw data
-    plt.subplot(2, 1, 1)
-    plt.plot(time, data["totels_1"], 'b-')
-    plt.plot(time, data["totels_8"], 'r-')
-
-    # ma data
-    plt.subplot(2, 1, 2)
-    plt.plot(time, smoothed_totels, 'b-')
-    plt.plot([time[begin_shock]] * 2, [0, max(smoothed_totels)], 'g--')
-    plt.plot([time[end_shock]] * 2, [0, max(smoothed_totels)], 'k--')
+    plt.plot(data.index, data["totels_1"], 'b-')
+    plt.plot(data.index, data["totels_8"], 'r-')
+    plt.plot([begin_shock] * 2, [0, max(data['totels_1'])], 'g--')
+    plt.plot([[end_shock]] * 2, [0, max(data['totels_1'])], 'k--')
 
     plt.show()
 
@@ -139,25 +127,11 @@ Input:
 Returns:
     Boundaries of the activity band
 """
-def compute_boundary_indexes(data, threshold_ratio):
-    data_copy = np.array(data.copy())
-    data_copy -= min(data_copy)
-    maxi = max(data_copy)
-    first_occurence = next(i for i, x in enumerate(data_copy) if x >= (maxi * threshold_ratio))
-    data_copy = np.flip(data_copy)
-    last_occurence = len(data_copy) - 1 - next(i for i, x in enumerate(data_copy) if x >= (maxi * threshold_ratio))
-    return first_occurence, last_occurence
-
-def moving_average(data, n):
-    raw_data = data.copy();
-    N = len(raw_data)
-    ma_data = []
-    for i in range(N):
-        sum = 0.0
-        for k in range(int(-n/2), int(n/2) + 1):
-            sum += raw_data[saturate(i + k, 0, N - 1)]
-        ma_data.append(float(sum) / n)
-    return ma_data
+def compute_boundary_indexes(data):
+    c_data = data.copy().drop(['epoch', 'r', 'lat', 'long', 'rho'], axis = 1)
+    algo = rpt.Dynp(model = 'l2', min_size = 30).fit(c_data) #min size corresponds to 2min
+    breakpoints = algo.predict(n_bkps = 2)
+    return breakpoints[0], breakpoints[1]
 
 def saturate(x, mini, maxi):
     return mini if x < mini else maxi if x > maxi else x

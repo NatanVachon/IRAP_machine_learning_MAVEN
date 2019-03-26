@@ -21,7 +21,7 @@ from sklearn.preprocessing import StandardScaler
 # DEFAULT PARAMETERS
 TRAIN_FROM_EXISTING = False
 
-FEATURE_NB = 10
+FEATURE_NB = 9
 CLASS_NB = 3
 EPOCHS_NB = 3
 BATCH_SIZE = 256
@@ -31,7 +31,7 @@ LAYERS_SIZES = [FEATURE_NB, 66, 22, CLASS_NB]
 LAYERS_ACTIVATIONS = ['relu', 'relu', 'tanh', 'softmax']
 
 LOAD_MODEL_PATH = '../Data/models/last_model.h5'
-SAVE_MODEL_PATH = '../Data/models/last_model.h5'
+#SAVE_MODEL_PATH = '../Data/models/last_model.h5'
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
                                                    FUNCTIONS DEFINITION
@@ -55,7 +55,6 @@ def run_training(datasets, layers_sizes = LAYERS_SIZES, layers_activations = LAY
     else:
         ANN = create_model(layers_sizes, layers_activations)
     compile_and_fit(ANN, datasets[0], datasets[2], epochs_nb, batch_size)
-    save_model(SAVE_MODEL_PATH, ANN)
     return ANN
 
 """
@@ -181,7 +180,6 @@ def compile_and_fit(model, X_train, y_train, n_epochs, b_s, val_size=0, loss_nam
 """
 Get a timed vector of predictions from the test set
 """
-
 def get_pred_timed(model, X_test_timed, scale_data_timed):
     y_pred_timed = pd.DataFrame()
     y_pred_timed['epoch'] = X_test_timed['epoch']
@@ -217,7 +215,10 @@ def get_prob_timed(model, X_test_timed, X_train_timed):
     X_test = scaler.transform(X_test)
 
     y_prob = model.predict(X_test)
-    y_prob_timed['prob'] = [max(y_prob[i]) for i in range(X_test.shape[0])]
+#    y_prob_timed['prob'] = [max(y_prob[i]) for i in range(X_test.shape[0])]
+    y_prob_timed['prob_ev'] = [y_prob[i][0] for i in range(X_test.shape[0])]
+    y_prob_timed['prob_sh'] = [y_prob[i][1] for i in range(X_test.shape[0])]
+    y_prob_timed['prob_sw'] = [y_prob[i][2] for i in range(X_test.shape[0])]
 
     return y_prob_timed
 

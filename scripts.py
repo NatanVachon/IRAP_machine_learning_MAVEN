@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 
 import neural_networks as nn
 import preprocessing as prp
+import postprocessing as pop
 import evaluation as ev
 import communication_AMDA as acom
 import prediction as pred
@@ -25,6 +26,7 @@ SHOCK_LIST_PATH = '../Data/datasets/ShockMAVEN_list.txt'
 
 DATASET_PATH = '../Data/datasets/simple_dataset.txt'
 
+MODEL_PATH = '../Data/models/'
 FEATURE_NB = 9
 CLASS_NB = 3
 EPOCHS_NB = 50
@@ -69,7 +71,7 @@ def network_k_fold_validation(k, path = DATASET_PATH, model = None, invert=False
 
         ANN = nn.run_training(train_dataset_i, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE)
         timed_Xtest, timed_ytest = pp_dataset_i[1], pp_dataset_i[3]
-        timed_ypred, raw_proba, true_variations, pred_variations, true_crossings = get_prediction(dataset, ANN, timed_Xtest, timed_ytest)
+        timed_ypred, raw_proba, true_variations, pred_variations, true_crossings = pop.get_prediction(dataset, ANN, timed_Xtest, timed_ytest)
 
         #compute the evaluation metrics
         conf_m, conf_m_norm = ev.get_confusion_matrices(timed_ytest['label'], timed_ypred['label'])
@@ -117,44 +119,68 @@ def create_dataset(shock_list_path = SHOCK_LIST_PATH, shock_nb = -1, name = 'def
             shock_data = gather_and_predict_data(shock_epoch)
             dataset = pd.concat([dataset, shock_data], ignore_index = True)
             shock_list_indexes.remove(random_index)
-    acom.save_df(dataset, SAVE_PATH, name)
-    return dataset
+    final_dataset = acom.save_df(dataset, SAVE_PATH, name)
+    return final_dataset
 
+"""
+Script used to train a mlp neural network easily
+Inputs:
+    pandas.DataFrame() data for training
+    List               layers number of perceptrons
+    List               layers activation function (ex: relu, tanh, softmax...)
+    int                total number of epochs
+    int                batch size
+    str                mlp name
+"""
+def train_nn(dataset, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE, name = 'last_trained'):
+    timed_dataset = prp.get_timed_train_test(dataset)
+    train_dataset = prp.get_train_test_sets(timed_dataset[0], timed_dataset[1], timed_dataset[2], timed_dataset[3])
+    ANN = nn.run_training(train_dataset, layers_sizes, layers_activations, epochs_nb, batch_size, test_size)
+    nn.save_model(MODEL_PATH + name + '.h5', ANN)
+    return ANN
+
+"""
+"""
 def pred_from_model(dataset, model):
-    # Prepare data
-    cDataset = dataset.copy();
-    del cDataset['label']
-    # Predict from model
-    timed_ypred = nn.get_pred_timed(model, cDataset, cDataset)
+    pp_dataset_i = prp.get_timed_train_test(dataset, test_size = 1.0, ordered = True)
+    timed_Xtest, timed_ytest = pp_dataset_i[1], pp_dataset_i[3]
+    timed_ypred, raw_proba, true_variations, pred_variations, true_crossings = pop.get_prediction(dataset, model, timed_Xtest, timed_ytest)
     # Plot result
     plt.plot(dataset['epoch'], dataset['label'], 'g-')
     plt.plot(timed_ypred['epoch'], timed_ypred['label'], 'r-')
-    return timed_ypred
+    plt.show()
+    return timed_ypred, raw_proba
+
+"""
+"""
+def corrected_prediction(model, dataset, dt_corr, dt_density):
+    scale_data = dataset.drop('label', axis = 1)
+    unseen_data = dataset.drop('label', axis = 1)
+    init_pred = nn.get_pred_timed(model, unseen_data, scale_data)
+    proba = nn.get_prob_timed(model, unseen_data, scale_data)
+
+    init_var = ev.get_var(init_pred)
+    init_var = ev.get_category(init_var)
+
+    #corr_pred = pop.get_corrected_pred(init_var, init_pred, proba, dt_corr)
+    corr_pred = pop.get_corrected_pred2(init_pred, proba, dt_corr)
+    vcorr = ev.get_category(ev.get_var(corr_pred))
+    vcorr = pop.corrected_var(vcorr, 15) #deletes variations faster than 15s
+    corr_crossings = ev.crossings_from_var(vcorr)
+
+    corr_pred = pop.crossings_density(corr_pred, corr_crossings, dt_density)
+    final_crossings = pop.final_list(corr_pred)
+
+    # Plot data
+    plt.plot(dataset.epoch, dataset.label, 'g-')
+    plt.plot(init_pred.epoch, init_pred.label, 'r--')
+    plt.plot(corr_pred.epoch, corr_pred.label, 'b-')
+    plt.show()
+    return corr_pred, vcorr, final_crossings
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
                                             UTILITY FUNCTIONS
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-
-"""
-Get raw predictions from the network
-"""
-def get_prediction(dataset, ANN, timed_Xtest, timed_ytest):
-    timed_ypred = nn.get_pred_timed(ANN, timed_Xtest, dataset.drop(['label'],axis=1))
-
-    raw_proba = nn.get_prob_timed(ANN, timed_Xtest, dataset.drop(['label'],axis=1))
-
-    #variations
-    pred_variations = ev.get_var(timed_ypred)
-    true_variations = ev.get_var(timed_ytest)
-
-    true_variations = ev.get_category(true_variations)
-    pred_variations = ev.get_closest_var_by_cat(true_variations, ev.get_category(pred_variations))
-
-    #crossings reference
-    true_crossings = ev.crossings_from_var(true_variations)
-
-    return timed_ypred, raw_proba, true_variations, pred_variations, true_crossings
 
 """
 Function that gather and preprocess data for a single shock epoch

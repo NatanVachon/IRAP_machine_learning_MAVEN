@@ -116,6 +116,7 @@ def save_df(dataset, path, name):
         saved_df['epoch'].at[i] = pd.Timestamp(saved_df['epoch'].at[i]).timestamp()
     # Save data
     saved_df.to_csv(path + name + '.txt', encoding = 'utf-8', index = False)
+    return saved_df
 
 """
 Main function definition
