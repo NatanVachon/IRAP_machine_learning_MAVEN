@@ -54,8 +54,8 @@ def run_training(datasets, layers_sizes = LAYERS_SIZES, layers_activations = LAY
         ANN = load_model(LOAD_MODEL_PATH)
     else:
         ANN = create_model(layers_sizes, layers_activations)
-    compile_and_fit(ANN, datasets[0], datasets[2], epochs_nb, batch_size)
-    return ANN
+    training = compile_and_fit(ANN, datasets[0], datasets[2], epochs_nb, batch_size)
+    return ANN, training
 
 """
 Creates a keras model

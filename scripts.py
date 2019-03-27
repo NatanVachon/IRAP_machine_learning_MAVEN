@@ -69,7 +69,7 @@ def network_k_fold_validation(k, path = DATASET_PATH, model = None, invert=False
         pp_dataset_i = prp.get_timed_train_test(dataset, start_index = start_index_i, ordered = True)
         train_dataset_i = prp.get_train_test_sets(pp_dataset_i[0], pp_dataset_i[1], pp_dataset_i[2], pp_dataset_i[3])
 
-        ANN = nn.run_training(train_dataset_i, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE)
+        ANN, _ = nn.run_training(train_dataset_i, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE)
         timed_Xtest, timed_ytest = pp_dataset_i[1], pp_dataset_i[3]
         timed_ypred, raw_proba, true_variations, pred_variations, true_crossings = pop.get_prediction(dataset, ANN, timed_Xtest, timed_ytest)
 
@@ -135,9 +135,9 @@ Inputs:
 def train_nn(dataset, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE, name = 'last_trained'):
     timed_dataset = prp.get_timed_train_test(dataset)
     train_dataset = prp.get_train_test_sets(timed_dataset[0], timed_dataset[1], timed_dataset[2], timed_dataset[3])
-    ANN = nn.run_training(train_dataset, layers_sizes, layers_activations, epochs_nb, batch_size, test_size)
+    ANN, training = nn.run_training(train_dataset, layers_sizes, layers_activations, epochs_nb, batch_size, test_size)
     nn.save_model(MODEL_PATH + name + '.h5', ANN)
-    return ANN
+    return ANN, training
 
 """
 """
@@ -162,21 +162,21 @@ def corrected_prediction(model, dataset, dt_corr, dt_density):
     init_var = ev.get_var(init_pred)
     init_var = ev.get_category(init_var)
 
-    #corr_pred = pop.get_corrected_pred(init_var, init_pred, proba, dt_corr)
-    corr_pred = pop.get_corrected_pred2(init_pred, proba, dt_corr)
-    vcorr = ev.get_category(ev.get_var(corr_pred))
+    corr_pred_1 = pop.get_corrected_pred(init_var, init_pred, proba, dt_corr)
+    corr_pred_2 = pop.get_corrected_pred2(init_pred, proba, dt_corr)
+    vcorr = ev.get_category(ev.get_var(corr_pred_2))
     vcorr = pop.corrected_var(vcorr, 15) #deletes variations faster than 15s
     corr_crossings = ev.crossings_from_var(vcorr)
 
-    corr_pred = pop.crossings_density(corr_pred, corr_crossings, dt_density)
-    final_crossings = pop.final_list(corr_pred)
+    corr_pred_2 = pop.crossings_density(corr_pred_2, corr_crossings, dt_density)
+    final_crossings = pop.final_list(corr_pred_2)
 
     # Plot data
-    plt.plot(dataset.epoch, dataset.label, 'g-')
-    plt.plot(init_pred.epoch, init_pred.label, 'r--')
-    plt.plot(corr_pred.epoch, corr_pred.label, 'b-')
+    plt.plot(dataset.index, dataset.label, 'g-')
+    plt.plot(corr_pred_1.index, corr_pred_1.label, 'r--')
+    plt.plot(corr_pred_2.index, corr_pred_2.label, 'b-')
     plt.show()
-    return corr_pred, vcorr, final_crossings
+    return corr_pred_2, vcorr, final_crossings
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
                                             UTILITY FUNCTIONS
