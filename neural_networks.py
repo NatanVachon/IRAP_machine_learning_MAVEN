@@ -30,7 +30,7 @@ TEST_SIZE = 0.3
 LAYERS_SIZES = [FEATURE_NB, 66, 22, CLASS_NB]
 LAYERS_ACTIVATIONS = ['relu', 'relu', 'tanh', 'softmax']
 
-LOAD_MODEL_PATH = '../Data/models/last_model.h5'
+LOAD_MODEL_PATH = '../Data/models/MAVEN_mlp_V1.h5'
 #SAVE_MODEL_PATH = '../Data/models/last_model.h5'
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -49,11 +49,11 @@ Inputs:
     float                Test proportion (between 0 and 1)
 """
 def run_training(datasets, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB,
-                 batch_size = BATCH_SIZE, test_size = TEST_SIZE):
+                 batch_size = BATCH_SIZE, test_size = TEST_SIZE, dropout = 0.0):
     if TRAIN_FROM_EXISTING:
         ANN = load_model(LOAD_MODEL_PATH)
     else:
-        ANN = create_model(layers_sizes, layers_activations)
+        ANN = create_model(layers_sizes, layers_activations, dropout = dropout)
     training = compile_and_fit(ANN, datasets[0], datasets[2], epochs_nb, batch_size)
     return ANN, training
 
@@ -235,6 +235,9 @@ def save_model(filepath, model):
 """
 Loading the model from a specific file
 """
-def load_model(filepath):
+def load_model(filepath = LOAD_MODEL_PATH):
     model = ks.models.load_model(filepath, custom_objects={'jaccard_distance': jaccard_distance})
     return model
+
+if __name__ == '__main__':
+    print('mlp main')

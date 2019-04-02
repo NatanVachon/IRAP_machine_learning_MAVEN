@@ -39,6 +39,7 @@ def predict_file(data):
     data = fill_nan_values(data)
     # Compute shock boundaries
     begin_shock, end_shock = compute_boundary_indexes(data)
+    plot_variables(data, begin_shock, end_shock)
     # Split data in three parts
     first_part = data.iloc[:begin_shock].copy()
     last_part = data.iloc[end_shock:].copy()
@@ -101,9 +102,7 @@ label
 Argument:
     pandas.DataFrame() containing data for several timestamps
 """
-def plot_variables(data):
-    begin_shock, end_shock = compute_boundary_indexes(data)
-
+def plot_variables(data, begin_shock, end_shock):
     # raw data
     plt.plot(data.index, data["totels_1"], 'b-')
     plt.plot(data.index, data["totels_8"], 'r-')

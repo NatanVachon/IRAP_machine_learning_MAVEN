@@ -132,7 +132,7 @@ Inputs:
     int                batch size
     str                mlp name
 """
-def train_nn(dataset, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE, name = 'last_trained'):
+def train_nn(dataset, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE, dropout = 0.0, name = 'last_trained'):
     timed_dataset = prp.get_timed_train_test(dataset)
     train_dataset = prp.get_train_test_sets(timed_dataset[0], timed_dataset[1], timed_dataset[2], timed_dataset[3])
     ANN, training = nn.run_training(train_dataset, layers_sizes, layers_activations, epochs_nb, batch_size, test_size)
@@ -162,21 +162,19 @@ def corrected_prediction(model, dataset, dt_corr, dt_density):
     init_var = ev.get_var(init_pred)
     init_var = ev.get_category(init_var)
 
-    corr_pred_1 = pop.get_corrected_pred(init_var, init_pred, proba, dt_corr)
-    corr_pred_2 = pop.get_corrected_pred2(init_pred, proba, dt_corr)
-    vcorr = ev.get_category(ev.get_var(corr_pred_2))
+    corr_pred = pop.get_corrected_pred2(init_pred, proba, dt_corr)
+    vcorr = ev.get_category(ev.get_var(corr_pred))
     vcorr = pop.corrected_var(vcorr, 15) #deletes variations faster than 15s
     corr_crossings = ev.crossings_from_var(vcorr)
 
-    corr_pred_2 = pop.crossings_density(corr_pred_2, corr_crossings, dt_density)
-    final_crossings = pop.final_list(corr_pred_2)
+    corr_pred = pop.crossings_density(corr_pred, corr_crossings, dt_density)
+    final_crossings = pop.final_list(corr_pred)
 
     # Plot data
     plt.plot(dataset.index, dataset.label, 'g-')
-    plt.plot(corr_pred_1.index, corr_pred_1.label, 'r--')
-    plt.plot(corr_pred_2.index, corr_pred_2.label, 'b-')
+    plt.plot(corr_pred.index, corr_pred.label, 'b-')
     plt.show()
-    return corr_pred_2, vcorr, final_crossings
+    return corr_pred, vcorr, final_crossings
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
                                             UTILITY FUNCTIONS
@@ -188,7 +186,6 @@ Function that gather and preprocess data for a single shock epoch
 def gather_and_predict_data(centered_epoch):
     shock_begin, shock_end = str(pd.Timestamp(centered_epoch) - pd.Timedelta('45m')).replace(' ', 'T'), str(pd.Timestamp(centered_epoch) + pd.Timedelta('45m')).replace(' ', 'T')
     shock_data = acom.download_multiparam_df(shock_begin, shock_end, PARAMETER_NAMES, PARAMETER_COLS)
-    pred.plot_variables(shock_data) #TODO: REMOVE
     shock_data = pred.predict_file(shock_data)
     return shock_data
 

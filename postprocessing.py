@@ -50,71 +50,6 @@ def final_list(y_density):
     return final
 
 """
-New version of the functions that corrects labels
-Idea : instead of correcting variations, we correct labels directly by taking
-for each of them a sliding window and assigning the most represented class in this sliding window
-"""
-def get_corrected_pred(var_ref, y_timed, timed_proba, Dt):
-    corr_y = y_timed.copy()
-    corr_lab = []
-    n = y_timed.count()[0]
-    last_account_index = 0
-
-    if var_ref.count().max() < 2 :
-        return y_timed
-
-    for i in range(n):
-        if(i%10000==0):
-            print("Corrected ",i,"/",n)
-        curr_t = y_timed.iloc[i]['epoch']
-        curr_var_t = var_ref.iloc[last_account_index]['epoch']
-
-        if abs(curr_t - curr_var_t) < Dt - Dt/4 :
-
-            window = y_timed.loc[(y_timed['epoch'] > curr_t - Dt/2) & ((y_timed['epoch'] < curr_t + Dt/2))]
-
-            sw_window = window.loc[window['label']==2]
-            sh_window = window.loc[window['label']==1]
-            ev_window = window.loc[window['label']==0]
-
-            sw_prob = timed_proba.loc[timed_proba['epoch'].isin(sw_window['epoch'])]['prob_sw']
-            sh_prob = timed_proba.loc[timed_proba['epoch'].isin(sh_window['epoch'])]['prob_sh']
-            ev_prob = timed_proba.loc[timed_proba['epoch'].isin(ev_window['epoch'])]['prob_ev']
-
-            n_sw = sum(sw_prob)
-            n_sh = sum(sh_prob)
-            n_ev = sum(ev_prob)
-
-            if n_sh>0:
-                if n_sw >= max(n_sh, n_ev):
-                    corr_lab.append(2)
-                elif n_sh >= max(n_sw, n_ev):
-                    corr_lab.append(1)
-                else:
-                    corr_lab.append(0)
-            #si les 2 seules classes sont les classes externes on réintroduit le choc
-            #A FAIRE
-            else:
-                if n_sw > n_ev :
-                    if n_sw < n_ev*3 :
-                        corr_lab.append(1)
-                    else: corr_lab.append(2)
-                elif n_sw <= n_ev :
-                    if n_ev < n_sw*3 :
-                        corr_lab.append(1)
-                    else: corr_lab.append(0)
-        else:
-            corr_lab.append(y_timed.iloc[i]['label'])
-
-        if(curr_t>curr_var_t + Dt - Dt/4):
-            last_account_index+=1;
-            if last_account_index>var_ref.count()[0] - 2:
-                last_account_index = var_ref.count()[0] - 1;
-
-    corr_y['label'] = corr_lab
-    return corr_y
-
-"""
 Different version of postprocessing on raw probabilities
 Instead of comparing the global probability on detected classes, we just compare
 the mean probabilities within the sliding window
@@ -122,7 +57,7 @@ the mean probabilities within the sliding window
 
 def get_corrected_pred2(y_timed, timed_proba, Dt):
     corr_y = y_timed.copy()
-    delta = int(Dt/4) # Boudary effect offset, 4 corresponds to the 4s timestep
+    delta = int(Dt/4/2) # Boudary effect offset, 4 corresponds to the 4s timestep
     # Create a window sliding on each point
     for i in range(delta, y_timed.count()[0] - delta):
         mean_probas = np.zeros((3, 1))
