@@ -7,7 +7,6 @@ train NNs.
 
 """
 
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import ruptures as rpt
@@ -34,12 +33,13 @@ Returns:
     Input dataframe with an additional column containing labels if the direction
     is detected, else return None
 """
-def predict_file(data):
+def predict_file(data, plot = False):
     # Fill nan values with median values
     data = fill_nan_values(data)
     # Compute shock boundaries
     begin_shock, end_shock = compute_boundary_indexes(data)
-    plot_variables(data, begin_shock, end_shock)
+    if plot:
+        plot_variables(data, begin_shock, end_shock)
     # Split data in three parts
     first_part = data.iloc[:begin_shock].copy()
     last_part = data.iloc[end_shock:].copy()
@@ -65,10 +65,9 @@ Returns:
     pandas.DataFrame() with no more nan values
 """
 def fill_nan_values(data):
-    data_copy = data.copy()
-    for i in range(1, data_copy.count(1)[0]):
-        data_copy.iloc[:,i] = data_copy.iloc[:,i].fillna(data_copy.iloc[:,i].median())
-    return data_copy
+    for i in range(1, data.count(1)[0]):
+        data.iloc[:,i] = data.iloc[:,i].fillna(data.iloc[:,i].median())
+    return data
 
 """
 Determines if the satellite is ascending or descending

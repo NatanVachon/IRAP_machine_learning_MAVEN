@@ -11,6 +11,7 @@ import pandas as pd
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
+from tensorflow.keras import optimizers
 import keras.backend as B
 from sklearn.preprocessing import StandardScaler
 
@@ -62,18 +63,20 @@ Creates a keras model
 Arguments:
     - lay_s : ex : layer_sizes = [11,11,6] will give an ANN with layers (11, 11, 6)
     - act : ex : act = ['relu', 'relu', 'softmax']
-    - dropout : dropout proportion, default to 0
+    - dropout : dropout proportion, default to 0 (applied between every layer)
 """
 def create_model(lay_s, act, dropout=0.0):
     #initializing the model
     model = Sequential()
     #adding the input layer
     model.add(Dense(lay_s[0], activation = act[0], input_shape=(lay_s[0],)))
-    if dropout>0:
+    if dropout > 0:
         model.add(Dropout(dropout))
     #adding the other layers
     for i in range(1,len(lay_s)):
         model.add(Dense(lay_s[i], activation = act[i]))
+        if dropout > 0:
+            model.add(Dropout(dropout))
     return model
 
 """
@@ -173,6 +176,8 @@ Returns:
     training is the history of the training
 """
 def compile_and_fit(model, X_train, y_train, n_epochs, b_s, val_size=0, loss_name = jaccard_distance):
+    #optimizer = optimizers.SGD(lr = 0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    #model.compile(optimizer = optimizer, loss = [loss_name], metrics = ['acc'])
     model.compile(optimizer = 'adam', loss = [loss_name], metrics = ['acc'])
     training = model.fit(X_train, y_train, validation_split = val_size, epochs = n_epochs, batch_size = b_s, verbose = 1)
     return training

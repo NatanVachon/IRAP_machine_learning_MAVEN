@@ -27,7 +27,7 @@ SAVE_PATH = "d:/natan/Documents/IRAP/Data/datasets/"
 BEGIN_DATE = '2014-11-14T17:33:30'
 END_DATE = '2014-11-14T19:33:30'
 
-PARAMETER_NAMES = ["mav_mars_r", "mav_lat_iaumars", "mav_lon_iaumars", "ws_0", "ws_1", "ws_4", "ws_2", "ws_3", "mav_swiakp_vmso(0)"]
+PARAMETER_NAMES = ["mav_mars_r", "mav_lat_iaumars", "mav_lon_iaumars", "ws_0", "ws_1", "ws_5", "ws_2", "ws_3", "mav_swiakp_vmso(0)"]
 PARAMETER_COLS = [["epoch", "r"], ["epoch", "lat"], ["epoch", "long"], ["epoch", "rho"], ["epoch", "deriv_r"], ["epoch", "mag_var"], ["epoch", "totels_1"], ["epoch", "totels_8"], ["epoch", "SWIA_vel_x"]]
 
 """

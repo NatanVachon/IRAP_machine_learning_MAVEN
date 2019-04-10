@@ -10,7 +10,7 @@ import numpy as np
 
 import scripts as S
 
-DATA_PATH = '../Data/datasets/MAVEN_last_30_ruptures.txt'
+DATA_PATH = '../Data/datasets/MAVEN_V2_full.txt'
 
 """
 This function is used to look for the best number of neurons in a 3 layes mlp
@@ -39,6 +39,15 @@ def second_layer_neuron_nb_opti(min_nb, max_nb, epochs_nb = 200, batch_size = 12
     plot_histories(histories, [i for i in range(min_nb, max_nb + 1)])
     return histories
 
+def two_hl_neuron_nb_opti(first_layer_nb, second_layer_nb, epochs_nb = 1000, batch_size = 512, test_size = 0.2, recall = 0.2):
+    histories = []
+    dataset = pd.read_csv(DATA_PATH)
+    for i,j in zip(first_layer_nb, second_layer_nb):
+        ANN, history = S.train_nn(dataset, [9, i, j, 3], ['relu', 'relu', 'tanh', 'softmax'], epochs_nb, batch_size, test_size)
+        histories.append(history)
+    plot_histories(histories, list(zip(first_layer_nb, second_layer_nb)))
+    return histories
+
 def activation_opti(epochs_nb = 50, batch_size = 256, test_size = 0.15):
     histories = []
     dataset = pd.read_csv(DATA_PATH)
@@ -60,7 +69,6 @@ def activation_opti(epochs_nb = 50, batch_size = 256, test_size = 0.15):
 def plot_histories(histories, legends):
     plt.figure()
     for i in range(len(histories)):
-#        plt.plot(np.log(1 - np.array(histories[i].history['acc'])))
         plt.plot(histories[i].history['acc'])
     plt.grid()
     plt.legend(legends, loc='upper left')
@@ -68,7 +76,6 @@ def plot_histories(histories, legends):
 
     plt.figure()
     for i in range(len(histories)):
-#        plt.plot(np.log(histories[i].history['loss']))
         plt.plot(histories[i].history['loss'])
     plt.grid()
     plt.legend(legends, loc='lower left')
