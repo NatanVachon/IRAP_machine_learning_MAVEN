@@ -26,7 +26,7 @@ Return:
     X_train_timed, y_train_timed, X_test_timed, y_test_timed
     (These variables are called '_timed' because they still contain the 'epoch' information of the initial data)
 """
-def get_timed_train_test(timed_data, test_size = 0.3, nb_class = 3):
+def get_timed_train_test(timed_data, test_size = 0.3, nb_class = 3, ordered = False, start_index = 0):
 
     ###########################
     #this part is specific to the martian problem
@@ -45,7 +45,28 @@ def get_timed_train_test(timed_data, test_size = 0.3, nb_class = 3):
     X = timed_data.copy()
     del X['label']
 
-    X_train_timed, X_test_timed, y_train_timed, y_test_timed = train_test_split(X,y,test_size = test_size)
+    if ordered :
+        if start_index == 0:
+            split_index = int(test_size*timed_data.count()[0])
+
+            X_test_timed = X.iloc[0:split_index,:]
+            y_test_timed = y.iloc[0:split_index,:]
+
+            X_train_timed = X.iloc[split_index:,:]
+            y_train_timed = y.iloc[split_index:,:]
+
+        else :
+            split_index1 = start_index
+            split_index2 = start_index + int(test_size*timed_data.count()[0])
+
+            X_test_timed = X.iloc[split_index1:split_index2,:]
+            y_test_timed = y.iloc[split_index1:split_index2,:]
+
+            X_train_timed = pd.concat([X.iloc[0:split_index1,:], X.iloc[split_index2:,:]], ignore_index=True)
+            y_train_timed = pd.concat([y.iloc[0:split_index1,:], y.iloc[split_index2:,:]], ignore_index=True)
+
+    else:
+        X_train_timed, X_test_timed, y_train_timed, y_test_timed = train_test_split(X,y,test_size = test_size)
 
     return X_train_timed, X_test_timed, y_train_timed, y_test_timed
 

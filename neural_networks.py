@@ -11,26 +11,72 @@ import pandas as pd
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
+from tensorflow.keras import optimizers
 import keras.backend as B
 from sklearn.preprocessing import StandardScaler
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+                                                   CONSTANTS DEFINITION
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+# DEFAULT PARAMETERS
+TRAIN_FROM_EXISTING = False
+
+FEATURE_NB = 9
+CLASS_NB = 3
+EPOCHS_NB = 3
+BATCH_SIZE = 256
+TEST_SIZE = 0.3
+
+LAYERS_SIZES = [FEATURE_NB, 66, 22, CLASS_NB]
+LAYERS_ACTIVATIONS = ['relu', 'relu', 'tanh', 'softmax']
+
+LOAD_MODEL_PATH = '../Data/models/MAVEN_mlp_V1.h5'
+#SAVE_MODEL_PATH = '../Data/models/last_model.h5'
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+                                                   FUNCTIONS DEFINITION
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+"""
+Function training a neural network according to some parameters and dataset
+
+Inputs:
+    pandas.DataFrame()[] List of: X_train, X_test, y_train, y_test (preprocessed)
+    int[]                List of layers sizes
+    activation[]         List of layers activation
+    int                  Number of epoch
+    int                  Batch size
+    float                Test proportion (between 0 and 1)
+"""
+def run_training(datasets, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB,
+                 batch_size = BATCH_SIZE, test_size = TEST_SIZE, dropout = 0.0):
+    if TRAIN_FROM_EXISTING:
+        ANN = load_model(LOAD_MODEL_PATH)
+    else:
+        ANN = create_model(layers_sizes, layers_activations, dropout = dropout)
+    training = compile_and_fit(ANN, datasets[0], datasets[2], epochs_nb, batch_size)
+    return ANN, training
 
 """
 Creates a keras model
 Arguments:
     - lay_s : ex : layer_sizes = [11,11,6] will give an ANN with layers (11, 11, 6)
     - act : ex : act = ['relu', 'relu', 'softmax']
-    - dropout : dropout proportion, default to 0
+    - dropout : dropout proportion, default to 0 (applied between every layer)
 """
 def create_model(lay_s, act, dropout=0.0):
     #initializing the model
     model = Sequential()
     #adding the input layer
     model.add(Dense(lay_s[0], activation = act[0], input_shape=(lay_s[0],)))
-    if dropout>0:
+    if dropout > 0:
         model.add(Dropout(dropout))
     #adding the other layers
     for i in range(1,len(lay_s)):
         model.add(Dense(lay_s[i], activation = act[i]))
+        if dropout > 0:
+            model.add(Dropout(dropout))
     return model
 
 """
@@ -130,21 +176,15 @@ Returns:
     training is the history of the training
 """
 def compile_and_fit(model, X_train, y_train, n_epochs, b_s, val_size=0, loss_name = jaccard_distance):
+    #optimizer = optimizers.SGD(lr = 0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    #model.compile(optimizer = optimizer, loss = [loss_name], metrics = ['acc'])
     model.compile(optimizer = 'adam', loss = [loss_name], metrics = ['acc'])
     training = model.fit(X_train, y_train, validation_split = val_size, epochs = n_epochs, batch_size = b_s, verbose = 1)
     return training
 
 """
-Get an untimed vector of predictions from a test set
-"""
-def get_pred(model, X_test):
-    y_pred = model.predict_classes(X_test)
-    return y_pred
-
-"""
 Get a timed vector of predictions from the test set
 """
-
 def get_pred_timed(model, X_test_timed, scale_data_timed):
     y_pred_timed = pd.DataFrame()
     y_pred_timed['epoch'] = X_test_timed['epoch']
@@ -180,7 +220,10 @@ def get_prob_timed(model, X_test_timed, X_train_timed):
     X_test = scaler.transform(X_test)
 
     y_prob = model.predict(X_test)
-    y_prob_timed['prob'] = [max(y_prob[i]) for i in range(X_test.shape[0])]
+#    y_prob_timed['prob'] = [max(y_prob[i]) for i in range(X_test.shape[0])]
+    y_prob_timed['prob_ev'] = [y_prob[i][0] for i in range(X_test.shape[0])]
+    y_prob_timed['prob_sh'] = [y_prob[i][1] for i in range(X_test.shape[0])]
+    y_prob_timed['prob_sw'] = [y_prob[i][2] for i in range(X_test.shape[0])]
 
     return y_prob_timed
 
@@ -197,6 +240,9 @@ def save_model(filepath, model):
 """
 Loading the model from a specific file
 """
-def load_model(filepath):
+def load_model(filepath = LOAD_MODEL_PATH):
     model = ks.models.load_model(filepath, custom_objects={'jaccard_distance': jaccard_distance})
     return model
+
+if __name__ == '__main__':
+    print('mlp main')
