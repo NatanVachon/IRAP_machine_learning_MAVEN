@@ -34,10 +34,10 @@ Returns:
     is detected, else return None
 """
 def predict_file(data, plot = False):
-    # Fill nan values with median values
-    data = fill_nan_values(data)
     # Compute shock boundaries
     begin_shock, end_shock = compute_boundary_indexes(data)
+    # Fill nan values with median values per class
+    data = fill_nan_values(data, begin_shock, end_shock)
     if plot:
         plot_variables(data, begin_shock, end_shock)
     # Split data in three parts
@@ -64,9 +64,11 @@ Input:
 Returns:
     pandas.DataFrame() with no more nan values
 """
-def fill_nan_values(data):
+def fill_nan_values(data, begin_shock, end_shock):
     for i in range(1, data.count(1)[0]):
-        data.iloc[:,i] = data.iloc[:,i].fillna(data.iloc[:,i].median())
+        data.iloc[:begin_shock,i] = data.iloc[:begin_shock,i].fillna(data.iloc[:begin_shock,i].median())
+        data.iloc[begin_shock:end_shock,i] = data.iloc[begin_shock:end_shock,i].fillna(data.iloc[begin_shock:end_shock,i].median())
+        data.iloc[end_shock:,i] = data.iloc[end_shock:,i].fillna(data.iloc[end_shock:,i].median())
     return data
 
 """

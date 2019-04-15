@@ -20,8 +20,8 @@ import prediction as pred
 BEGIN_DATE = '2016-02-16T02:00:31'
 END_DATE = '2016-02-16T04:00:31'
 
-PARAMETER_NAMES = ["mav_mars_r", "mav_lat_iaumars", "mav_lon_iaumars", "ws_0", "ws_1", "ws_5", "ws_2", "ws_3", "mav_swiakp_vmso(0)"]
-PARAMETER_COLS = [["epoch", "r"], ["epoch", "lat"], ["epoch", "long"], ["epoch", "rho"], ["epoch", "deriv_r"], ["epoch", "mag_var"], ["epoch", "totels_1"], ["epoch", "totels_8"], ["epoch", "SWIA_vel_x"]]
+PARAMETER_NAMES = ["mav_mars_r", "mav_lat_iaumars", "mav_lon_iaumars", "ws_0", "ws_1", "ws_5", "ws_2", "ws_3", "mav_swiakp_vmso(0)", "ws_7"]
+PARAMETER_COLS = [["epoch", "r"], ["epoch", "lat"], ["epoch", "long"], ["epoch", "rho"], ["epoch", "deriv_r"], ["epoch", "mag_var"], ["epoch", "totels_1"], ["epoch", "totels_8"], ["epoch", "SWIA_vel_x"], ["epoch", "temp"]]
 SAVE_PATH = "d:/natan/Documents/IRAP/Data/datasets/"
 SHOCK_LIST_PATH = '../Data/datasets/ShockMAVEN_dt1h_list.txt'
 
@@ -32,9 +32,10 @@ FEATURE_NB = 9
 CLASS_NB = 3
 EPOCHS_NB = 50
 BATCH_SIZE = 128
-TEST_SIZE = 0.3
+TEST_SIZE = 0.2
+DROPOUT = 0.2
 
-LAYERS_SIZES = [FEATURE_NB, FEATURE_NB, CLASS_NB, CLASS_NB]
+LAYERS_SIZES = [FEATURE_NB, 60, 30, CLASS_NB]
 LAYERS_ACTIVATIONS = ['relu', 'relu', 'tanh', 'softmax']
 
 """
@@ -46,13 +47,11 @@ Evaluating the network for the following metrics:
     - ratio nb. predicted variations / true variations
     - loss (jaccard)
 Returns a DataFrame with the metrics
+TODO
 """
 
-def network_k_fold_validation(ANN, dataset, k, path = DATASET_PATH, invert=False):
+def network_k_fold_validation(ANN, dataset, k):
     test_size = 1/k
-    if invert:
-        test_size = 1-test_size
-
     #metrics arrays
     conf_matrices = []
     sw_f = []
@@ -110,6 +109,7 @@ def create_dataset(shock_list_path = SHOCK_LIST_PATH, shock_nb = -1, random = Tr
             random_index = shock_list_indexes[rd.randint(0, len(shock_list_indexes) - 1)]
             shock_epoch = shock_list.at[random_index, 'epoch']
             print('Loading sample ' + str(i + 1) + '/' + str(shock_nb))
+            print("epoch: " + str(shock_epoch))
             shock_data = gather_and_predict_data(shock_epoch)
             dataset = pd.concat([dataset, shock_data], ignore_index = True)
             shock_list_indexes.remove(random_index)
@@ -131,21 +131,21 @@ Inputs:
     int                batch size
     str                mlp name
 """
-def train_nn(dataset, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE, dropout = 0.0, name = 'last_trained'):
+def train_nn(dataset, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE, dropout = DROPOUT, name = 'last_trained'):
     timed_dataset = prp.get_timed_train_test(dataset)
     train_dataset = prp.get_train_test_sets(timed_dataset[0], timed_dataset[1], timed_dataset[2], timed_dataset[3])
     ANN, training = nn.run_training(train_dataset, layers_sizes, layers_activations, epochs_nb, batch_size, test_size)
     nn.save_model(MODEL_PATH + name + '.h5', ANN)
     return ANN, training
 
-def run_validation(ANN, validation_data, dt_corr):
+def validation(ANN, dt_corr):
     validation_data = pd.read_csv('../Data/datasets/MAVEN_V2_full_400.txt')
     pred = corrected_prediction(ANN, validation_data, dt_corr)
     _, cm = ev.get_confusion_matrices(validation_data['label'], pred['label'])
     accuracy, recall = ev.accuracy_from_cm(cm), ev.recall_from_cm(cm)
     print("Accuracy : " + str(accuracy))
     print("Recall : " + str(recall))
-    return
+    return cm, accuracy, recall
 
 """
 """
@@ -161,16 +161,20 @@ def pred_from_model(dataset, model):
 
 """
 """
-def corrected_prediction(model, dataset, dt_corr):#, dt_density):
-    scale_data = dataset.drop('label', axis = 1)
-    unseen_data = dataset.drop('label', axis = 1)
-    init_pred = nn.get_pred_timed(model, unseen_data, scale_data)
-    proba = nn.get_prob_timed(model, unseen_data, scale_data)
+def corrected_prediction(ANN, dataset, dt_corr):#, dt_density):
+    if 'label' in dataset.columns:
+        scale_data = dataset.drop('label', axis = 1)
+        unseen_data = dataset.drop('label', axis = 1)
+    else:
+        scale_data = dataset.copy()
+        unseen_data = dataset.copy()
+    init_pred = nn.get_pred_timed(ANN, unseen_data, scale_data)
+    proba = nn.get_prob_timed(ANN, unseen_data, scale_data)
 
 #    init_var = ev.get_var(init_pred)
 #    init_var = ev.get_category(init_var)
 
-    corr_pred = pop.get_corrected_pred2(init_pred, proba, dt_corr)
+    corr_pred = pop.get_corrected_pred(init_pred, proba, dt_corr)
 #    vcorr = ev.get_category(ev.get_var(corr_pred))
 #    vcorr = pop.corrected_var(vcorr, 15) #deletes variations faster than 15s
 #    corr_crossings = ev.crossings_from_var(vcorr)
@@ -179,8 +183,13 @@ def corrected_prediction(model, dataset, dt_corr):#, dt_density):
 #    final_crossings = pop.final_list(corr_pred)
 
     # Plot data
-    plt.plot(dataset.index, dataset.label, 'g-')
+    if 'label' in dataset.columns:
+        plt.plot(dataset.index, dataset.label, 'g-')
     plt.plot(corr_pred.index, corr_pred.label, 'b-')
+    if 'label' in dataset.columns:
+        plt.legend(['True label', 'Predicted label'], loc = 'upper right')
+    else:
+        plt.legend(['Predicted label'], loc = 'upper right')
     plt.show()
     return corr_pred #,vcorr, final_crossings
 

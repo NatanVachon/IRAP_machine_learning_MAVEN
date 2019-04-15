@@ -6,7 +6,6 @@ Created on Tue Mar 26 16:22:23 2019
 """
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
 
 import scripts as S
 
@@ -63,6 +62,15 @@ def activation_opti(epochs_nb = 50, batch_size = 256, test_size = 0.15):
 
     # Plot part
     plot_histories(histories, ['relu', 'tanh', 'sigmoid'])
+    return histories
+
+def batch_size_opti(batch_sizes):
+    histories = []
+    dataset = pd.read_csv(DATA_PATH)
+    for i in range(len(batch_sizes)):
+        _, history = S.train_nn(dataset, batch_size = batch_sizes[i], epochs_nb=int(batch_sizes[i] / 8))
+        histories.append(history)
+    plot_histories(histories, batch_sizes)
     return histories
 
 
