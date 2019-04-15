@@ -10,8 +10,8 @@ import io
 import pandas as pd
 
 # Username and password
-USERNAME = "vachon"
-PASSWORD = "virapass"
+USERNAME = "XXXX"
+PASSWORD = "XXXX"
 
 # URLs
 REQUEST_URL = "http://amda.irap.omp.eu/php/rest/getParameter.php"

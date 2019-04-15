@@ -55,7 +55,7 @@ Instead of comparing the global probability on detected classes, we just compare
 the mean probabilities within the sliding window
 """
 
-def get_corrected_pred2(y_timed, timed_proba, Dt):
+def get_corrected_pred(y_timed, timed_proba, Dt):
     corr_y = y_timed.copy()
     delta = int(Dt/4/2) # Boudary effect offset, 4 corresponds to the 4s timestep
     # Create a window sliding on each point
