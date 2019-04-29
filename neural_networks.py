@@ -22,7 +22,7 @@ from sklearn.preprocessing import StandardScaler
 # DEFAULT PARAMETERS
 TRAIN_FROM_EXISTING = False
 
-FEATURE_NB = 9
+FEATURE_NB = 8
 CLASS_NB = 3
 EPOCHS_NB = 3
 BATCH_SIZE = 256

@@ -11,6 +11,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ruptures as rpt
 
+PRED_VECTOR = [ -1/50.0, -5e-4, 1, 1 ] # Outbound defined: SWIA_x, totels1, deriv_r first, deriv_r last
+PRED_VAR_DIAG = [ 1, 2e-4, 1, 1 ]
+
 """
 Detection parameters
 """
@@ -24,8 +27,6 @@ SOLAR_WIND_DELTA_THRESHOLD = 50 # km/s
 Semi-automatic prediction of labels for every timestamp in the dataframe.
 To determine the label we assume that in an hour we can detect one cross
 
-TODO: VERIFIER LES INDICES
-
 Arguments:
     pandas.DataFrame() containing data for several timestamps
 
@@ -34,6 +35,8 @@ Returns:
     is detected, else return None
 """
 def predict_file(data, plot = False):
+    if "label" in data.columns:
+        data = data.drop(["label"], axis=1)
     # Compute shock boundaries
     begin_shock, end_shock = compute_boundary_indexes(data)
     # Fill nan values with median values per class
@@ -84,17 +87,29 @@ Returns:
     2 if descending
 """
 def compute_direction(first_part, last_part):
+    # Ion velocity
     mean_sw_vel_1 = np.mean(first_part["SWIA_vel_x"])
-    print('sw_vel_1 = ' + str(mean_sw_vel_1))
+    #print("mean_sw_vel_1: " + str(mean_sw_vel_1))
     mean_sw_vel_2 = np.mean(last_part["SWIA_vel_x"])
-    print('sw_vel_2 = ' + str(mean_sw_vel_2))
+    #print("mean_sw_vel_2: " + str(mean_sw_vel_2))
+    # Totels 1
+    mean_totels1_1 = np.mean(first_part["totels_1"].iloc[:min(len(first_part), 150)])
+    #print("totels1_1: " + str(mean_totels1_1))
+    mean_totels1_2 = np.mean(last_part["totels_1"].iloc[-min(len(last_part), 150):])
+    #print("totels1_2: " + str(mean_totels1_2))
+    # R derivative
+    mean_r_deriv_1 = np.sign(np.mean(first_part["deriv_r"]))
+    #print("r_deriv_1: " + str(mean_r_deriv_1))
+    mean_r_deriv_2 = np.sign(np.mean(last_part["deriv_r"]))
+    #print("r_deriv_2: " + str(mean_r_deriv_2))
 
-    if mean_sw_vel_1 - mean_sw_vel_2 > SOLAR_WIND_DELTA_THRESHOLD:
-        return 0
-    elif mean_sw_vel_1 - mean_sw_vel_2 < SOLAR_WIND_DELTA_THRESHOLD:
-        return 2
-    else:
-        return 1
+    param = np.array([mean_sw_vel_2 - mean_sw_vel_1, mean_totels1_2 - mean_totels1_1, mean_r_deriv_1, mean_r_deriv_2])
+    variance_matrix = np.diag(PRED_VAR_DIAG)
+    proba = sigmoid(np.dot(param, variance_matrix.dot(np.array(PRED_VECTOR))))
+    #proba = sigmoid(np.dot(param, np.array(PRED_VECTOR)))
+
+    print("proba outbound: " + str(proba))
+    return 0 if proba > 0.7 else 2 if proba < 0.3 else 1
 
 """
 Function used to plot several variables in order to choose biases to estimate
@@ -128,10 +143,20 @@ Returns:
     Boundaries of the activity band
 """
 def compute_boundary_indexes(data):
-    c_data = data.copy().drop(['epoch', 'r', 'lat', 'long', 'rho'], axis = 1)
-    algo = rpt.Dynp(model = 'l2', min_size = 30).fit(c_data) #min size corresponds to 2min
-    breakpoints = algo.predict(n_bkps = 2)
-    return breakpoints[0], breakpoints[1]
+    breakpoint = compute_shock_position(data)
+    if breakpoint > 37:
+        return breakpoint - 37, breakpoint + 37
+    return None
 
-def saturate(x, mini, maxi):
-    return mini if x < mini else maxi if x > maxi else x
+def compute_shock_position(data):
+    c_data = data.copy().drop(['epoch', 'x', 'rho', 'deriv_r', 'SWIA_qual'], axis = 1)
+    algo = rpt.Dynp(model = 'l2').fit(c_data) #min size corresponds to 2min
+    breakpoints = algo.predict(n_bkps = 1)
+    return breakpoints[0]
+
+#def compute_boundary_indexes(data):
+#    n = data.count()[0]
+#    return int(n/2) - 37, int(n/2) + 37
+
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x))

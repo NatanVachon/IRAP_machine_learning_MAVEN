@@ -12,6 +12,29 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 
 """
+"""
+def metrics_with_tolerances(true_data, pred_data, dt_tol):
+    true_var, pred_var = get_var(true_data), get_var(pred_data)
+    true_var, pred_var = get_category(true_var), get_category(pred_var)
+    true_cross, pred_cross = crossings_from_var(true_var), crossings_from_var(pred_var)
+    # Apply tolerance on epochs
+    true_pos, false_pos, false_neg = 0, 0, 0
+    c_true_cross = true_cross.copy()
+    for i, pred_epoch in enumerate(pred_cross["epoch"]):
+        index = next((j for j, true_epoch in enumerate(c_true_cross["epoch"]) if abs(pred_epoch - true_epoch) <= dt_tol), None)
+        if(index is not None):
+            true_pos += 1
+            c_true_cross = c_true_cross.drop(c_true_cross.index[index])
+        else:
+            false_pos += 1
+    false_neg = true_cross.count()[0] - true_pos
+    acc = true_pos / (true_pos + false_pos)
+    recall = true_pos / (true_pos + false_neg)
+    print("Accuracy: " + str(acc))
+    print("Recall: " + str(recall))
+    return acc, recall
+
+"""
 Plots the graph of classes transitions from a true variations list and a predicted variations list.
 
 true_var, pred_var : pandas.DataFrame with columns 'epoch', 'pred_class', 'follow_class'
@@ -91,6 +114,7 @@ def get_var(y_timed):
     print('Total nb. variations: ', var.count()[0])
     return var
 
+
 """
 Same function as get_category but for any number of classes
 Number of combinations for n variations = sum(k=[1,n])(k) = n*(n+1)/2
@@ -111,34 +135,6 @@ def get_category(var, nb_class = 3):
     new_var = var.copy()
     new_var['category'] = cat
     return new_var
-
-"""
-Returns a copy of pred_var with the added column 'dt_to_closest'
-This new column represents, for each variation in pred_var, how far the closest variation of same category in true_var is.
-For the variations with a .5 category (non physical var.), it justs represents how far the closest true variation is.
-
-true_var : pandas.DataFrame with columns 'epoch', 'category'
-pred_var : pandas.DataFrame with columns 'epoch', 'category'
-
-Syntax :
-    new_pred_var = get_closest_var_by_cat(true_var, pred_var)
-"""
-def get_closest_var_by_cat(true_var,pred_var):
-    dt_list = []
-    pn = pred_var.count()[0]
-    tn = true_var.count()[0]
-    for i in range(pn):
-        min_dt = float('inf')
-        dt = float('inf')
-        for j in range(tn):
-            if pred_var['category'].iloc[i] == true_var['category'].iloc[j] or pred_var['category'].iloc[i] == 0.5: #a changer en -1 aussi dans les fonctions d'eval
-                dt = pred_var['epoch'].iloc[i] - true_var['epoch'].iloc[j]
-            if abs(dt)<abs(min_dt):
-                min_dt = dt
-        dt_list.append(min_dt)
-    new_pred_var = pred_var.copy()
-    new_pred_var['dt_to_closest'] = dt_list
-    return new_pred_var
 
 """
 Takes a list of variations and returns a list of shock crossings associated
