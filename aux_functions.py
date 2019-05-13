@@ -11,14 +11,17 @@ FANG_LIST_PATH = "../Data/datasets/MAVEN_shockFANG.txt"
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from keras.utils.vis_utils import plot_model
 
 import communication_AMDA as acom
 import prediction as pred
+import evaluation as ev
+import scripts as S
 
-def save_file(data, filepath):
+def save_epoch_label(data, filepath):
     file = open(filepath, 'w')
     for i in range(len(data)):
-        file.write(str(data.at[i, 'epoch'] + ' '))
+        file.write(str(pd.to_datetime(data.at[i, 'epoch'], unit='s')).replace(' ', 'T') + ' ')
         file.write(str(data.at[i, 'label']) + "\n")
     file.close()
     return
@@ -71,4 +74,68 @@ def plot_deltas_distribution(gru_deltas, fang_deltas):
     sns.distplot(fang_deltas, label="Fang")
     plt.legend()
     plt.grid()
+    return
+
+def get_shock_epochs(data):
+    var = ev.get_var(data)
+    var = ev.get_category(var)
+    shocks = []
+    for i in range(var.count()[0]):
+        if(var.at[i, "follow_class"] == 1):
+            shocks.append(pd.to_datetime(var.at[i, "epoch"], unit='s'))
+    return shocks
+
+def metrics_over_dt(ANN, data, delta_t_list):
+    accs, recalls = [], []
+    for i, delta_t in enumerate(delta_t_list):
+        acc, recall = S.test(ANN, data, 60, delta_t)
+        accs.append(acc)
+        recalls.append(recall)
+
+    return accs, recalls
+
+def plot_data(x, y, legend, xLabel="", yLabel=""):
+    plt.figure()
+    for i in range(len(y)):
+        plt.plot(x, y[i])
+    plt.xlabel(xLabel)
+    plt.ylabel(yLabel)
+    plt.legend(legend)
+    plt.grid()
+    plt.show()
+
+def test_lerp(pred_data, n):
+    accs, recalls = [], []
+    for i in range(n+1):
+        acc, recall = ev.metrics_from_list(pred_data, 10*60, lerp_delta=float(i)/n)
+        accs.append(acc)
+        recalls.append(recall)
+    plot_data([i for i in range(n+1)], [accs, recalls], [i for i in range(n+1)])
+    return accs, recalls
+
+def duplicate_epochs(filepath):
+    f = open(filepath, "r")
+    fd = open("new.txt", "w")
+    lines = f.readlines()
+    for i in range(len(lines)):
+        line = lines[i][:-1]
+        fd.write(line + ' ' + line + '\n')
+    f.close()
+    fd.close()
+    return
+
+def plot_model_shape(model, filepath):
+    plot_model(model, to_file=filepath, show_shapes=True, show_layer_names=True)
+    return
+
+def plot_histograms(datas):
+    n = len(datas)
+    for column in datas[0]:
+        if column not in ["label", "epoch", "SWIA_qual"]:
+            print(column)
+            plt.figure()
+            for data in datas:
+                plt.hist(data[column], bins=50, alpha=1.0/n)
+            plt.legend([str(i) for i in range(n)])
+            plt.show()
     return

@@ -8,6 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 import scripts as S
+import neural_networks as nn
 
 DATA_PATH = '../Data/datasets/MAVEN_V4_FULL.txt'
 
@@ -40,12 +41,12 @@ def second_layer_neuron_nb_opti(min_nb, max_nb, epochs_nb = 200, batch_size = 12
     plot_histories(histories, [i for i in range(min_nb, max_nb + 1)])
     return histories
 
-def two_hl_neuron_nb_opti(first_layer_nb, second_layer_nb, epochs_nb = 100, batch_size = 512, test_size = 0.2, recall = 0.2, dataset=None):
+def two_hl_neuron_nb_opti(first_layer_nb, second_layer_nb, epochs_nb = 200, batch_size = 512, test_size = 0.2, recall = 0.15, dataset=None):
     histories = []
     if dataset is None:
         dataset = pd.read_csv(DATA_PATH)
     for i,j in zip(first_layer_nb, second_layer_nb):
-        ANN, history = S.train_nn(dataset, [8, i, j, 3], ['relu', 'relu', 'tanh', 'softmax'], epochs_nb, batch_size, test_size)
+        ANN, history = S.train_nn(dataset, [nn.FEATURE_NB, i, j, nn.CLASS_NB], ['relu', 'relu', 'tanh', 'softmax'], epochs_nb, batch_size, test_size)
         histories.append(history)
     plot_histories(histories, list(zip(first_layer_nb, second_layer_nb)))
     return histories
@@ -55,13 +56,13 @@ def activation_opti(epochs_nb = 50, batch_size = 256, test_size = 0.15, dataset=
     if dataset is None:
         dataset = pd.read_csv(DATA_PATH)
     # relu hidden layer
-    ANN, history = S.train_nn(dataset, [8, 8, 3], ['relu', 'relu', 'softmax'], epochs_nb, batch_size, test_size)
+    ANN, history = S.train_nn(dataset, [8, 6, 3], ['relu', 'relu', 'softmax'], epochs_nb, batch_size, test_size)
     histories.append(history)
     # tanh hidden layer
-    ANN, history = S.train_nn(dataset, [8, 8, 3], ['relu', 'tanh', 'softmax'], epochs_nb, batch_size, test_size)
+    ANN, history = S.train_nn(dataset, [8, 6, 3], ['relu', 'tanh', 'softmax'], epochs_nb, batch_size, test_size)
     histories.append(history)
     # sigmoid hidden layer
-    ANN, history = S.train_nn(dataset, [8, 8, 3], ['relu', 'sigmoid', 'softmax'], epochs_nb, batch_size, test_size)
+    ANN, history = S.train_nn(dataset, [8, 6, 3], ['relu', 'sigmoid', 'softmax'], epochs_nb, batch_size, test_size)
     histories.append(history)
 
     # Plot part
@@ -75,7 +76,7 @@ def batch_size_opti(batch_sizes, dataset=None):
     if "SWIA_qual" in dataset.columns:
         dataset = dataset.drop(["SWIA_qual"], axis=1)
     for i in range(len(batch_sizes)):
-        _, history = S.train_nn(dataset, batch_size = batch_sizes[i], epochs_nb=int(batch_sizes[i] / 8))
+        _, history = S.train_nn(dataset, batch_size = batch_sizes[i])
         histories.append(history)
     plot_histories(histories, batch_sizes)
     return histories
@@ -86,14 +87,14 @@ def plot_histories(histories, legends):
         plt.plot(histories[i].history['acc'])
     plt.grid()
     plt.legend(legends, loc='upper left')
-    plt.ylim(0.95, 1)
+    #plt.ylim(0.95, 1)
 
     plt.figure()
     for i in range(len(histories)):
         plt.plot(histories[i].history['loss'])
     plt.grid()
     plt.legend(legends, loc='lower left')
-    plt.ylim(0, 0.1)
+    #plt.ylim(0, 0.1)
 
     plt.show()
 

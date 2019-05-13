@@ -11,6 +11,8 @@ import pandas as pd
 from sklearn.metrics import confusion_matrix
 import numpy as np
 
+LIST_PATH = '../Data/datasets/ShockMAVEN_dt1h_list.txt'
+
 """
 """
 def metrics_with_tolerances(true_data, pred_data, dt_tol):
@@ -18,20 +20,47 @@ def metrics_with_tolerances(true_data, pred_data, dt_tol):
     true_var, pred_var = get_category(true_var), get_category(pred_var)
     true_cross, pred_cross = crossings_from_var(true_var), crossings_from_var(pred_var)
     # Apply tolerance on epochs
-    true_pos, false_pos, false_neg = 0, 0, 0
-    c_true_cross = true_cross.copy()
-    for i, pred_epoch in enumerate(pred_cross["epoch"]):
-        index = next((j for j, true_epoch in enumerate(c_true_cross["epoch"]) if abs(pred_epoch - true_epoch) <= dt_tol), None)
-        if(index is not None):
-            true_pos += 1
-            c_true_cross = c_true_cross.drop(c_true_cross.index[index])
-        else:
-            false_pos += 1
-    false_neg = true_cross.count()[0] - true_pos
-    acc = true_pos / (true_pos + false_pos)
-    recall = true_pos / (true_pos + false_neg)
+    acc, recall = acc_recall_from_epochs(true_cross, pred_cross, dt_tol)
     print("Accuracy: " + str(acc))
     print("Recall: " + str(recall))
+    return acc, recall
+
+"""
+"""
+def metrics_from_list(pred_data, dt_tol, list_path=LIST_PATH, lerp_delta=0.5):
+    pred_var = get_var(pred_data)
+    pred_var = get_category(pred_var)
+    pred_cross = crossings_from_var(pred_var, lerp_delta)
+    # Gather shock epoch
+    true_data = pd.read_csv(list_path)
+    for i in range(true_data.count()[0]):
+        true_data.at[i, "epoch"] = pd.Timestamp(true_data.at[i, "epoch"]).timestamp()
+    # Find begin and end index
+    begin_epoch = next(i for i, e in true_data.iterrows() if e["epoch"] > pred_data.at[0, "epoch"])
+    end_epoch = next(i - 1 for i, e in true_data.iterrows() if e["epoch"] > pred_data.at[pred_data.count()[0]-1, "epoch"])
+    true_cross = true_data.loc[begin_epoch:end_epoch,:]
+    true_cross.index = [i for i in range(true_cross.count()[0])]
+    acc, recall = acc_recall_from_epochs(true_cross, pred_cross, dt_tol)
+    print("Accuracy: " + str(acc))
+    print("Recall: " + str(recall))
+    return acc, recall
+
+"""
+"""
+def acc_recall_from_epochs(true_data, pred_data, dt_tol):
+    # Apply tolerance on epochs
+    true_pos, false_pos, false_neg = 0, 0, 0
+    c_true_data = true_data.copy()
+    for i, pred_epoch in enumerate(pred_data["epoch"]):
+        index = next((j for j, true_epoch in enumerate(c_true_data["epoch"]) if abs(pred_epoch - true_epoch) < dt_tol), None)
+        if(index is not None):
+            true_pos += 1
+            c_true_data = c_true_data.drop(c_true_data.index[index])
+        else:
+            false_pos += 1
+    false_neg = true_data.count()[0] - true_pos
+    acc = true_pos / (true_pos + false_pos)
+    recall = true_pos / (true_pos + false_neg)
     return acc, recall
 
 """
@@ -109,7 +138,7 @@ def get_var(y_timed):
     var['prec_class'] = prec
     var['follow_class'] = follow
     var = var.sort_values(by='epoch')
-    var.index = var.epoch
+    #var.index = var.epoch JFD
     #for console printing
     print('Total nb. variations: ', var.count()[0])
     return var
@@ -144,10 +173,14 @@ Process:
 'category' needed
 Returns a dataframe of crossings with their epoch and direction : 0 for inbound, 1 for outbound
 """
-def crossings_from_var(var):
+def crossings_from_var(var, lerp_delta=0.5):
     epochs = []
     direction = []
+    bPass = False
     for i in range(var.count()[0]-1):
+        if bPass:
+            bPass = False
+            continue
         v = var.iloc[i]
         v_next = var.iloc[i+1]
         if v['category'] == 0.5:
@@ -157,14 +190,16 @@ def crossings_from_var(var):
             else:
                 direction.append(1)
         else:
-            dt = v_next['epoch'] - v['epoch']
-            if v['follow_class'] == v_next['prec_class'] and v['category']!=v_next['category'] and dt<1200:
-                t = v['epoch'] + dt/2
-                epochs.append(t)
-                if v_next['follow_class'] == 0:
-                    direction.append(0)
-                else:
-                    direction.append(1)
+            if v["category"] != -1:
+                bPass = True
+                dt = v_next['epoch'] - v['epoch']
+                if v['follow_class'] == v_next['prec_class'] and v['category']!=v_next['category'] and dt<1200:
+                    t = v['epoch'] + dt * lerp_delta
+                    epochs.append(t)
+                    if v_next['follow_class'] == 0:
+                        direction.append(0)
+                    else:
+                        direction.append(1)
     crossings = pd.DataFrame()
     crossings['epoch'] = epochs
     crossings['direction'] = direction

@@ -11,7 +11,7 @@ import pandas as pd
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
-from tensorflow.keras import optimizers
+from tensorflow.keras.callbacks import EarlyStopping
 import keras.backend as B
 from sklearn.preprocessing import StandardScaler
 
@@ -24,9 +24,10 @@ TRAIN_FROM_EXISTING = False
 
 FEATURE_NB = 8
 CLASS_NB = 3
-EPOCHS_NB = 3
+EPOCHS_NB = 200
 BATCH_SIZE = 256
 TEST_SIZE = 0.3
+MIN_LOSS_DELTA = 1e-5
 
 LAYERS_SIZES = [FEATURE_NB, 66, 22, CLASS_NB]
 LAYERS_ACTIVATIONS = ['relu', 'relu', 'tanh', 'softmax']
@@ -176,10 +177,10 @@ Returns:
     training is the history of the training
 """
 def compile_and_fit(model, X_train, y_train, n_epochs, b_s, val_size=0, loss_name = jaccard_distance):
-    #optimizer = optimizers.SGD(lr = 0.01, decay=1e-6, momentum=0.9, nesterov=True)
-    #model.compile(optimizer = optimizer, loss = [loss_name], metrics = ['acc'])
+    callback = EarlyStopping(monitor="loss", min_delta=MIN_LOSS_DELTA, patience=5, verbose=0)
     model.compile(optimizer = 'adam', loss = [loss_name], metrics = ['acc'])
-    training = model.fit(X_train, y_train, validation_split = val_size, epochs = n_epochs, batch_size = b_s, verbose = 1)
+    training = model.fit(X_train, y_train, validation_split = val_size, epochs = n_epochs, batch_size = b_s, verbose = 1, callbacks=[callback])
+    #training = model.fit(X_train, y_train, validation_split = val_size, epochs = n_epochs, batch_size = b_s, verbose = 1)
     return training
 
 """

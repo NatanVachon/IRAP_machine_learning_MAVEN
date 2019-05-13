@@ -23,7 +23,8 @@ END_DATE = '2016-02-16T04:00:31'
 PARAMETER_NAMES = ["mav_xyz_mso(0)", "ws_0", "ws_1", "ws_5", "ws_2", "ws_3", "mav_swiakp_qual", "mav_swiakp_vmso(0)", "ws_7"]
 PARAMETER_COLS = [["epoch", "x"], ["epoch", "rho"], ["epoch", "deriv_r"], ["epoch", "mag_var"], ["epoch", "totels_1"], ["epoch", "totels_8"], ["epoch", "SWIA_qual"], ["epoch", "SWIA_vel_x"], ["epoch", "temp"]]
 SAVE_PATH = "d:/natan/Documents/IRAP/Data/datasets/"
-SHOCK_LIST_PATH = '../Data/datasets/ShockMAVEN_dt1h_list.txt'
+#SHOCK_LIST_PATH = '../Data/datasets/ShockMAVEN_dt1h_list.txt'
+SHOCK_LIST_PATH = '../Data/datasets/ShockMAVEN_list.txt'
 
 DATASET_PATH = '../Data/datasets/simple_dataset.txt'
 
@@ -31,11 +32,11 @@ MODEL_PATH = '../Data/models/'
 FEATURE_NB = 8
 CLASS_NB = 3
 EPOCHS_NB = 200
-BATCH_SIZE = 512
+BATCH_SIZE = 256
 TEST_SIZE = 0.2
 DROPOUT = 0.2
 
-LAYERS_SIZES = [FEATURE_NB, 60, 30, CLASS_NB]
+LAYERS_SIZES = [FEATURE_NB, FEATURE_NB, CLASS_NB, CLASS_NB]
 LAYERS_ACTIVATIONS = ['relu', 'relu', 'tanh', 'softmax']
 
 """
@@ -98,7 +99,7 @@ def network_k_fold_validation(ANN, dataset, k):
     return conf_matrices, results
 
 def create_dataset(shock_list_path = SHOCK_LIST_PATH, shock_nb = -1, random = True, offset_index = 0, name = 'default', plot = False):
-    shock_list = pd.read_csv(shock_list_path, names = ['epoch'])
+    shock_list = pd.read_csv(shock_list_path)
     if shock_nb == -1:
         shock_nb = shock_list.count()[0]
     dataset = pd.DataFrame()
@@ -203,7 +204,36 @@ def corrected_prediction(ANN, dataset, dt_corr):
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
                                             UTILITY FUNCTIONS
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
+"""
+Training settings class
+"""
+class TrainingManager:
+    param = {}
+    history = None
+    ANN = None
+    def __init__(self, feature_nb = FEATURE_NB, class_nb = CLASS_NB, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE):
+        self.param["feature_nb"] = feature_nb
+        self.param["class_nb"] = class_nb
+        self.param["layers_sizes"] = layers_sizes
+        self.param["layers_activations"] = layers_activations
+        self.param["epochs_nb"] = epochs_nb
+        self.param["batch_size"] = batch_size
+        self.param["test_size"] = test_size
+    def __getitem__(self, index):
+        return self.param[index]
+    def __setitem__(self, index, item):
+        self.param[index] = item
+    def display(self):
+        print("feature number: " + str(self.param["feature_nb"]))
+        print("class number: " + str(self.param["class_nb"]))
+        print("epochs number: " + str(self.param["epochs_nb"]))
+        print("batch size: " + str(self.param["batch_size"]))
+        print("test size: " + str(self.param["test_size"]))
+    def run_training(self, dataset):
+        timed_dataset = prp.get_timed_train_test(dataset)
+        train_dataset = prp.get_train_test_sets(timed_dataset[0], timed_dataset[1], timed_dataset[2], timed_dataset[3])
+        self.ANN, self.training = nn.run_training(train_dataset, self.param["layers_sizes"], self.param["layers_activations"], self.param["epochs_nb"], self.param["batch_size"], self.param["test_size"])
+        # Save
 """
 Function that gather and preprocess data for a single shock epoch
 """

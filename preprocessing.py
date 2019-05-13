@@ -4,7 +4,6 @@ Created on Tue Mar 19 11:12:13 2019
 
 Preprocessing file. The following functions are used to prepare datasets to be
 used for training Neural Networks
-
 """
 
 import numpy as np
