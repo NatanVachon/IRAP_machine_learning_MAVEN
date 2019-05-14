@@ -126,6 +126,8 @@ class TrainingManager:
         pred_labels = pd.DataFrame()
         pred_labels["label"] = self.pred(test_data.drop("label", axis=1))
         self.cm = confusion_matrix(true_labels, pred_labels)
+        # Save data
+        self.save()
         return self.cm
 
     def save(self, path=SAVE_PATH):

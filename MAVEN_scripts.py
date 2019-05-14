@@ -15,27 +15,11 @@ import MAVEN_evaluation as ev
 import MAVEN_communication_AMDA as acom
 import MAVEN_prediction as pred
 
-BEGIN_DATE = '2016-02-16T02:00:31'
-END_DATE = '2016-02-16T04:00:31'
-
-PARAMETER_NAMES = ["mav_xyz_mso(0)", "ws_0", "ws_1", "ws_5", "ws_2", "ws_3", "mav_swiakp_qual", "mav_swiakp_vmso(0)", "ws_7"]
-PARAMETER_COLS = [["epoch", "x"], ["epoch", "rho"], ["epoch", "deriv_r"], ["epoch", "mag_var"], ["epoch", "totels_1"], ["epoch", "totels_8"], ["epoch", "SWIA_qual"], ["epoch", "SWIA_vel_x"], ["epoch", "temp"]]
 SAVE_PATH = "d:/natan/Documents/IRAP/Data/datasets/"
 #SHOCK_LIST_PATH = '../Data/datasets/ShockMAVEN_dt1h_list.txt'
 SHOCK_LIST_PATH = '../Data/datasets/ShockMAVEN_list.txt'
 
 DATASET_PATH = '../Data/datasets/simple_dataset.txt'
-
-MODEL_PATH = '../Data/models/'
-FEATURE_NB = 8
-CLASS_NB = 3
-EPOCHS_NB = 200
-BATCH_SIZE = 256
-TEST_SIZE = 0.2
-DROPOUT = 0.2
-
-LAYERS_SIZES = [FEATURE_NB, FEATURE_NB, CLASS_NB, CLASS_NB]
-LAYERS_ACTIVATIONS = ['relu', 'relu', 'tanh', 'softmax']
 
 def create_dataset(shock_list_path = SHOCK_LIST_PATH, shock_nb = -1, random = True, offset_index = 0, name = 'default', plot = False):
     shock_list = pd.read_csv(shock_list_path)
@@ -112,7 +96,7 @@ Function that gather and preprocess data for a single shock epoch
 """
 def gather_and_predict_data(centered_epoch, plot = False):
     shock_begin, shock_end = str(pd.Timestamp(centered_epoch) - pd.Timedelta('20m')).replace(' ', 'T'), str(pd.Timestamp(centered_epoch) + pd.Timedelta('20m')).replace(' ', 'T')
-    shock_data = acom.download_multiparam_df(shock_begin, shock_end, PARAMETER_NAMES, PARAMETER_COLS)
+    shock_data = acom.download_multiparam_df(shock_begin, shock_end, acom.PARAMETER_NAMES, acom.PARAMETER_COLS)
     shock_data = pred.predict_file(shock_data, plot)
     return shock_data
 
