@@ -27,7 +27,11 @@ def metrics_with_tolerances(true_data, pred_data, dt_tol):
 
 """
 """
-def metrics_from_list(pred_data, dt_tol, list_path=LIST_PATH, lerp_delta=0.5):
+def metrics_from_list(manager, data, dt_tol, list_path=LIST_PATH, lerp_delta=0.5):
+    if "label" in data.columns:
+        data = data.drop("label", axis=1)
+    pred_data = manager.get_pred(data.drop("epoch", axis=1))
+    pred_data["epoch"] = data["epoch"]
     pred_var = get_var(pred_data)
     pred_var = get_category(pred_var)
     pred_cross = crossings_from_var(pred_var, lerp_delta)

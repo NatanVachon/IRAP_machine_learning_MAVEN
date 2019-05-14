@@ -133,23 +133,46 @@ class TrainingManager:
         Saves the training manager
         path: Folder where you want to save the training manager
         """
+        if self.model is None:
+            print("No model attached. Nothing to save")
+            return
         # Construct saved object
         to_save = {"name":self.name, "params":self.params, "scaler":self.scaler, "cm":self.cm}
-        # Save object
-        if not os.path.isdir("lastTraining"):
+        # Create folder
+        if not os.path.isdir(self.name):
             os.mkdir(self.name)
         path += self.name + '/'
+        # Save data
         f = open(path + self.name + ".pkl", "wb")
         pkl.dump(to_save, f, pkl.HIGHEST_PROTOCOL)
         self.model.save(path + self.name + ".h5")
         f.close()
 
-    def load(self, path):
-        f = open(path + ".pkl", "rb")
-        loaded_data = pkl.load(f)
-        self.name = loaded_data["name"]
-        self.params = loaded_data["params"]
-        self.scaler = loaded_data["scaler"]
-        self.cm = loaded_data["cm"]
-        self.model = mlp.load_model(path + ".h5")
-        f.close()
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+                                                   FUNCTIONS DEFINITION
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+def loadManager(path):
+    """
+    Loads a saved TrainingManager and returns it
+    path: Path of the training manager folder
+
+    Returns: loaded training manager
+    """
+    # Get folder name
+    filename = path.split('/')[-1]
+    # Checks if folder exists
+    if not os.path.isdir(filename):
+        print("Training manager " + filename + " doesnt exists")
+        return
+    #Load data
+    loaded = TrainingManager()
+    f = open(path + '/' + filename + ".pkl", "rb")
+    loaded_data = pkl.load(f)
+    loaded.name = loaded_data["name"]
+    loaded.params = loaded_data["params"]
+    loaded.scaler = loaded_data["scaler"]
+    loaded.cm = loaded_data["cm"]
+    loaded.model = mlp.load_model(path + '/' + filename + ".h5")
+    f.close()
+    return loaded
