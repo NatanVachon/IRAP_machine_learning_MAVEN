@@ -27,11 +27,10 @@ CLASS_NB = 3
 EPOCHS_NB = 200
 BATCH_SIZE = 256
 TEST_SIZE = 0.3
-MIN_LOSS_DELTA = 1e-5
-
 LAYERS_SIZES = [FEATURE_NB, 66, 22, CLASS_NB]
 LAYERS_ACTIVATIONS = ['relu', 'relu', 'tanh', 'softmax']
 
+MIN_LOSS_DELTA = 1e-5
 LOAD_MODEL_PATH = '../Data/models/MAVEN_mlp_V1.h5'
 #SAVE_MODEL_PATH = '../Data/models/last_model.h5'
 

@@ -129,6 +129,7 @@ def plot_model_shape(model, filepath):
     return
 
 def plot_histograms(datas):
+    """Plots histograms of data distributions"""
     n = len(datas)
     for column in datas[0]:
         if column not in ["label", "epoch", "SWIA_qual"]:

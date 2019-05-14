@@ -211,6 +211,7 @@ class TrainingManager:
     param = {}
     history = None
     ANN = None
+    scaler = None # TODO: assign this scaler
     def __init__(self, feature_nb = FEATURE_NB, class_nb = CLASS_NB, layers_sizes = LAYERS_SIZES, layers_activations = LAYERS_ACTIVATIONS, epochs_nb = EPOCHS_NB, batch_size = BATCH_SIZE, test_size = TEST_SIZE):
         self.param["feature_nb"] = feature_nb
         self.param["class_nb"] = class_nb
@@ -223,7 +224,7 @@ class TrainingManager:
         return self.param[index]
     def __setitem__(self, index, item):
         self.param[index] = item
-    def display(self):
+    def print_param(self):
         print("feature number: " + str(self.param["feature_nb"]))
         print("class number: " + str(self.param["class_nb"]))
         print("epochs number: " + str(self.param["epochs_nb"]))
@@ -232,8 +233,8 @@ class TrainingManager:
     def run_training(self, dataset):
         timed_dataset = prp.get_timed_train_test(dataset)
         train_dataset = prp.get_train_test_sets(timed_dataset[0], timed_dataset[1], timed_dataset[2], timed_dataset[3])
-        self.ANN, self.training = nn.run_training(train_dataset, self.param["layers_sizes"], self.param["layers_activations"], self.param["epochs_nb"], self.param["batch_size"], self.param["test_size"])
-        # Save
+        self.ANN, self.history = nn.run_training(train_dataset, self.param["layers_sizes"], self.param["layers_activations"], self.param["epochs_nb"], self.param["batch_size"], self.param["test_size"])
+        # TODO: Save
 """
 Function that gather and preprocess data for a single shock epoch
 """
