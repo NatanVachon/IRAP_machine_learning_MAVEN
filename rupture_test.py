@@ -7,10 +7,9 @@ Created on Mon Mar 25 15:44:17 2019
 
 COST_THRESHOLD = 3*60
 
-import scripts as S
+import MAVEN_scripts as S
 
 import ruptures as rpt
-import numpy as np
 
 def predict(dataset):
 

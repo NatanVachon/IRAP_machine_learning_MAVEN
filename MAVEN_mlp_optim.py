@@ -7,8 +7,8 @@ Created on Tue Mar 26 16:22:23 2019
 import pandas as pd
 import matplotlib.pyplot as plt
 
-import scripts as S
-import neural_networks as nn
+import MAVEN_scripts as S
+import MAVEN_neural_networks as nn
 
 DATA_PATH = '../Data/datasets/MAVEN_V4_FULL.txt'
 

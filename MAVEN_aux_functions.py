@@ -13,10 +13,10 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from keras.utils.vis_utils import plot_model
 
-import communication_AMDA as acom
-import prediction as pred
-import evaluation as ev
-import scripts as S
+import MAVEN_communication_AMDA as acom
+import MAVEN_prediction as pred
+import MAVEN_evaluation as ev
+import MAVEN_scripts as S
 
 def save_epoch_label(data, filepath):
     file = open(filepath, 'w')

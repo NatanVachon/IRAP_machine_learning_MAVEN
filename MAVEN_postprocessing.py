@@ -5,8 +5,8 @@ Created on Wed Mar 20 09:54:41 2019
 This file contains post processing functions
 """
 
-import neural_networks as nn
-import evaluation as ev
+import MAVEN_neural_networks as nn
+import MAVEN_evaluation as ev
 
 import pandas as pd
 import statistics as stat

@@ -1,52 +1,44 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Mar 19 11:12:13 2019
+Created on Mon May 13 15:04:27 2019
 
-Preprocessing file. The following functions are used to prepare datasets to be
-used for training Neural Networks
+This file contains functions used for data preprocessing
 """
 
-import numpy as np
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+                                                       IMPORTS
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 from keras.utils import np_utils
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
 
-"""
-Getting the train and test sets
-Arguments:
-    timed_data : a given pandas.DataFrame() to convert to test and train sets, containing at least a 'label' and an 'epoch' columns
-    ordered : defines if the data sets created are shuffled (default: ordered=False) or chronological (ordered=True).
-    test_size : proportion of samples included in the test set (default: 0.3)
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+                                                   FUNCTIONS DEFINITION
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+def split_data(raw_data, test_size = 0.3, ordered = False, start_index = 0):
+    """
+    Getting the train and test sets
+    Arguments:
+        timed_data : a given pandas.DataFrame() to convert to test and train sets, containing at least a 'label' column
+        ordered : defines if the data sets created are shuffled (default: ordered=False) or chronological (ordered=True).
+        test_size : proportion of samples included in the test set (default: 0.3)
 
-    nb_class : defines if the problem has to be downgraded to 3 classes instead of 4
+        nb_class : defines if the problem has to be downgraded to 3 classes instead of 4
 
-Return:
-    X_train_timed, y_train_timed, X_test_timed, y_test_timed
-    (These variables are called '_timed' because they still contain the 'epoch' information of the initial data)
-"""
-def get_timed_train_test(timed_data, test_size = 0.3, nb_class = 3, ordered = False, start_index = 0):
-
-    ###########################
-    #this part is specific to the martian problem
-    ###########################
-    if nb_class == 3 :
-        labels = np.ravel(timed_data['label'])
-        timed_data['label'] = labels
-    elif nb_class != 4 :
-        print("WARNING: wrong number of classes")
-        return None
-    ############################
+    Returns:
+        X_train_timed, y_train_timed, X_test_timed, y_test_timed
+        (These variables are called '_timed' because they still contain the 'epoch' information of the initial data)
+    """
     y = pd.DataFrame()
-    y['epoch'] = timed_data['epoch']
-    y['label'] = timed_data['label']
+    y['label'] = raw_data['label']
 
-    X = timed_data.copy()
-    del X['label']
+    X = raw_data.copy().drop("label", axis=1)
 
     if ordered :
         if start_index == 0:
-            split_index = int(test_size*timed_data.count()[0])
+            split_index = int(test_size*raw_data.count()[0])
 
             X_test_timed = X.iloc[0:split_index,:]
             y_test_timed = y.iloc[0:split_index,:]
@@ -56,10 +48,12 @@ def get_timed_train_test(timed_data, test_size = 0.3, nb_class = 3, ordered = Fa
 
         else :
             split_index1 = start_index
-            split_index2 = start_index + int(test_size*timed_data.count()[0])
+            split_index2 = start_index + int(test_size*raw_data.count()[0])
 
             X_test_timed = X.iloc[split_index1:split_index2,:]
             y_test_timed = y.iloc[split_index1:split_index2,:]
+            X_test_timed.index = [i for i in range(X_test_timed.count()[0])]
+            y_test_timed.index = [i for i in range(y_test_timed.count()[0])]
 
             X_train_timed = pd.concat([X.iloc[0:split_index1,:], X.iloc[split_index2:,:]], ignore_index=True)
             y_train_timed = pd.concat([y.iloc[0:split_index1,:], y.iloc[split_index2:,:]], ignore_index=True)
@@ -69,46 +63,51 @@ def get_timed_train_test(timed_data, test_size = 0.3, nb_class = 3, ordered = Fa
 
     return X_train_timed, X_test_timed, y_train_timed, y_test_timed
 
-"""
-Getting the train and test sets without any time info and apply the scaling here
-"""
-def get_train_test_sets(X_train_timed, X_test_timed, y_train_timed, y_test_timed):
-    X_train = X_train_timed.copy()
-    X_test = X_test_timed.copy()
 
-    y_train = one_hot_encode(y_train_timed['label'].tolist())
-    y_test =  one_hot_encode(y_test_timed['label'].tolist())
+def scale_and_format(raw_X_train, raw_X_test, raw_y_train, raw_y_test):
+    """
+    Apply scaling to input data and format test data to vectors
+    raw_X_train: Training dataset
+    raw_X_test: Test dataset
+    raw_y_train: Training test set
+    raw_y_test: Test test set
 
-    del X_train['epoch']
-    del X_test['epoch']
+    Returns: tuple of scaled and formated data (length 4) and sklearn.preprocessing.StandardScaler
+    """
+    X_train = raw_X_train.copy()
+    X_test = raw_X_test.copy()
+
+    y_train = one_hot_encode(raw_y_train['label'].tolist())
+    y_test =  one_hot_encode(raw_y_test['label'].tolist())
 
     scaler = StandardScaler().fit(X_train)
     # Scale the train and test set
     X_train = scaler.transform(X_train)
     X_test  = scaler.transform(X_test)
 
-    return X_train, X_test, y_train, y_test
+    return (X_train, X_test, y_train, y_test), scaler
 
-"""
-Useful functions to switch between labels representations
-    The 2 different representations are represented here for an example with 3 distinct classes
-
-    labels = [0, 0, 1, 2, 1, 0, 2, 2, 0]
-
-    y = [[1, 0, 0],
-         [1, 0, 0],
-         [0, 1, 0],
-         [0, 0, 1],
-         [0, 1, 0],
-         [1, 0, 0],
-         [0, 0, 1],
-         [0, 0, 1],
-         [1, 0, 0]]
-
-"""
-from sklearn.preprocessing import LabelEncoder
 
 def one_hot_encode(labels):
+    """
+    Useful functions to switch between labels representations
+        The 2 different representations are represented here for an example with 3 distinct classes
+
+        labels = [0, 0, 1, 2, 1, 0, 2, 2, 0]
+
+        y = [[1, 0, 0],
+             [1, 0, 0],
+             [0, 1, 0],
+             [0, 0, 1],
+             [0, 1, 0],
+             [1, 0, 0],
+             [0, 0, 1],
+             [0, 0, 1],
+             [1, 0, 0]]
+    labels: List of labels to encode
+
+    Returns: Encoded labels
+    """
     encoder = LabelEncoder()
     encoder.fit(labels)
     encoded = encoder.transform(labels)
