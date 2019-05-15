@@ -18,7 +18,7 @@ import os
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
                                                    DEFAULT PARAMETERS
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-SAVE_PATH = ""
+SAVE_PATH = "../Data/managers/"
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
                                                    CLASSES DEFINITION
@@ -31,7 +31,7 @@ class TrainingManager:
     params = {}       # Dictionnary containing every train parameter
     model = None      # Trained neural network
     scaler = None     # Data scaler used to normalize data
-    cm = None
+    cm = None         # Confusion matrix
 
     def __init__(self, name = "lastTraining", layers_sizes = mlp.LAYERS_SIZES, layers_activations = mlp.LAYERS_ACTIVATIONS,
                  epochs_nb = mlp.EPOCHS_NB, batch_size = mlp.BATCH_SIZE, test_size = mlp.TEST_SIZE):
@@ -92,8 +92,11 @@ class TrainingManager:
 
         Returns: pandas.DataFrame Predicted classes
         """
+        # Scale data
         scaled_data = self.scaler.transform(data)
+        # Predict
         pred_classes = self.model.predict_classes(scaled_data)
+        # Return DataFrame
         pred_df = pd.DataFrame()
         pred_df["label"] = pred_classes
         return pred_df
@@ -124,7 +127,7 @@ class TrainingManager:
         """
         true_labels = test_data["label"]
         pred_labels = pd.DataFrame()
-        pred_labels["label"] = self.pred(test_data.drop("label", axis=1))
+        pred_labels["label"] = self.get_pred(test_data.drop("label", axis=1))["label"]
         self.cm = confusion_matrix(true_labels, pred_labels)
         # Save data
         self.save()
@@ -141,8 +144,8 @@ class TrainingManager:
         # Construct saved object
         to_save = {"name":self.name, "params":self.params, "scaler":self.scaler, "cm":self.cm}
         # Create folder
-        if not os.path.isdir(self.name):
-            os.mkdir(self.name)
+        if not os.path.isdir(path + self.name):
+            os.mkdir(path + self.name)
         path += self.name + '/'
         # Save data
         f = open(path + self.name + ".pkl", "wb")

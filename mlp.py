@@ -20,7 +20,7 @@ from tensorflow import keras as ks
 FEATURE_NB = 8
 CLASS_NB = 3
 EPOCHS_NB = 50
-BATCH_SIZE = 256
+BATCH_SIZE = 1024
 TEST_SIZE = 0.2
 LAYERS_SIZES = [FEATURE_NB, FEATURE_NB, CLASS_NB, CLASS_NB]
 LAYERS_ACTIVATIONS = ['relu', 'relu', 'tanh', 'softmax']
@@ -44,7 +44,7 @@ def run_training(datasets, layers_sizes = LAYERS_SIZES, layers_activations = LAY
     Returns: trained mlp, training history
     """
     ANN = create_model(layers_sizes, layers_activations, dropout = dropout)
-    training = compile_and_fit(ANN, datasets[0], datasets[2], epochs_nb, batch_size)
+    training = compile_and_fit(ANN, datasets[0], datasets[2], datasets[1], datasets[3], epochs_nb, batch_size)
     return ANN, training
 
 def create_model(lay_s, act, dropout=0.0):
@@ -92,7 +92,7 @@ def jaccard_distance(y_true, y_pred, smooth=100):
     return (1 - jac) * smooth
 
 
-def compile_and_fit(model, X_train, y_train, n_epochs, b_s, val_size=0, loss_name = jaccard_distance):
+def compile_and_fit(model, X_train, y_train, X_test, y_test, n_epochs, b_s, loss_name = jaccard_distance):
     """
     Arguments:
         - model : model to compile and train
@@ -105,7 +105,7 @@ def compile_and_fit(model, X_train, y_train, n_epochs, b_s, val_size=0, loss_nam
         training is the history of the training
     """
     model.compile(optimizer = 'adam', loss = [loss_name], metrics = ['acc'])
-    training = model.fit(X_train, y_train, validation_split = val_size, epochs = n_epochs, batch_size = b_s, verbose = 1)
+    training = model.fit(X_train, y_train, validation_data = (X_test, y_test), epochs = n_epochs, batch_size = b_s, verbose = 1)
     return training
 
 
