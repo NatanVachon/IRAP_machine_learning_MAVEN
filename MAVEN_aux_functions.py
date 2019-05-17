@@ -17,6 +17,13 @@ import MAVEN_communication_AMDA as acom
 import MAVEN_prediction as pred
 import MAVEN_evaluation as ev
 import MAVEN_scripts as S
+import TrainingManagment as tm
+import numpy as np
+
+def load_dataset(n):
+    data = pd.read_csv("../Data/datasets/MAVEN_V4_datasets/MAVEN_V4_" + str(n) + "00.txt")
+    data = data.drop("SWIA_qual", axis=1)
+    return data
 
 def save_epoch_label(data, filepath):
     file = open(filepath, 'w')
@@ -140,3 +147,39 @@ def plot_histograms(datas):
             plt.legend([str(i) for i in range(n)])
             plt.show()
     return
+
+def plot_acc_func_of_train_sample_nb(data_train, data_test, percents):
+    manager = tm.TrainingManager()
+    manager["epochs_nb"] = 30
+    manager["batch_size"] = 64
+    recalls = []
+    accuracies = []
+    shock_nb = []
+    n = data_train.count()[0] / 100
+    for i in percents:
+        subset = data_train.loc[:i * n]
+        _ = S.train_nn(manager, subset)
+        acc, recall = ev.metrics_from_list(manager, data_test, 60, 5*60)
+        recalls.append(recall)
+        accuracies.append(acc)
+        shock_nb.append(i)
+    plot_data(shock_nb, [accuracies, recalls], ["acc", "recalls"])
+    return recalls, accuracies, shock_nb
+
+def co_learning_matrix(n):
+    manager = tm.TrainingManager()
+    manager["epochs_nb"] = 70
+    A, R = np.zeros((n, n)), np.zeros((n, n))
+    for i in range(n):
+        if i == 3:
+            continue
+        data_train = load_dataset(i+1)
+        for j in range(n):
+            if i == j or j == 3:
+                continue
+            data_test = load_dataset(j+1)
+            _ = S.train_nn(manager, data_train)
+            acc, recall = ev.metrics_from_list(manager, data_test, 60, 5*60)
+            A[i, j] = acc
+            R[i, j] = recall
+    return A, R

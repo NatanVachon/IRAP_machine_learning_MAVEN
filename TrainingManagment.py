@@ -32,6 +32,7 @@ class TrainingManager:
     model = None      # Trained neural network
     scaler = None     # Data scaler used to normalize data
     cm = None         # Confusion matrix
+    remarks = ""      # Special remarks about the manager
 
     def __init__(self, name = "lastTraining", layers_sizes = mlp.LAYERS_SIZES, layers_activations = mlp.LAYERS_ACTIVATIONS,
                  epochs_nb = mlp.EPOCHS_NB, batch_size = mlp.BATCH_SIZE, test_size = mlp.TEST_SIZE):
@@ -67,8 +68,9 @@ class TrainingManager:
         print("Epochs number: " + str(self.params["epochs_nb"]))
         print("Batch size: " + str(self.params["batch_size"]))
         print("Test size: " + str(self.params["test_size"]))
+        print("Loss function: " + str(self.params["loss_function"]))
 
-    def run_training(self, dataset):
+    def run_training(self, dataset, loss_function = mlp.jaccard_distance):
         """
         Train a new neural network according to the manager's paremeters
         dataset: DataFrame whose columns are features and lines are train samples
@@ -79,9 +81,8 @@ class TrainingManager:
         timed_dataset = prp.split_data(dataset, test_size=self.params["test_size"])
         train_dataset, self.scaler = prp.scale_and_format(timed_dataset[0], timed_dataset[1], timed_dataset[2], timed_dataset[3])
         # Train
-        self.model, history = mlp.run_training(train_dataset, self.params["layers_sizes"], self.params["layers_activations"], self.params["epochs_nb"], self.params["batch_size"], self.params["test_size"])
-        # Save
-        self.save()
+        self.model, history = mlp.run_training(train_dataset, self.params["layers_sizes"], self.params["layers_activations"], self.params["epochs_nb"],
+                                               self.params["batch_size"], self.params["test_size"], loss_function)
         # return history
         return history
 
@@ -93,7 +94,11 @@ class TrainingManager:
         Returns: pandas.DataFrame Predicted classes
         """
         # Scale data
-        scaled_data = self.scaler.transform(data)
+        # Remove label if necessary
+        if "label" in data.columns:
+            scaled_data = self.scaler.transform(data.drop("label", axis=1))
+        else:
+            scaled_data = self.scaler.transform(data)
         # Predict
         pred_classes = self.model.predict_classes(scaled_data)
         # Return DataFrame
@@ -129,7 +134,7 @@ class TrainingManager:
         pred_labels = pd.DataFrame()
         pred_labels["label"] = self.get_pred(test_data.drop("label", axis=1))["label"]
         self.cm = confusion_matrix(true_labels, pred_labels)
-        # Save data
+        # Save manager
         self.save()
         return self.cm
 

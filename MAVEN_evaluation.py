@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.metrics import confusion_matrix
 import numpy as np
+from ruptures.metrics import precision_recall
 
 import MAVEN_scripts as S
 
@@ -17,22 +18,11 @@ LIST_PATH = '../Data/datasets/ShockMAVEN_dt1h_list.txt'
 
 """
 """
-def metrics_with_tolerances(true_data, pred_data, dt_tol):
-    true_var, pred_var = get_var(true_data), get_var(pred_data)
-    true_var, pred_var = get_category(true_var), get_category(pred_var)
-    true_cross, pred_cross = crossings_from_var(true_var), crossings_from_var(pred_var)
-    # Apply tolerance on epochs
-    acc, recall = acc_recall_from_epochs(true_cross, pred_cross, dt_tol)
-    print("Accuracy: " + str(acc))
-    print("Recall: " + str(recall))
-    return acc, recall
-
-"""
-"""
 def metrics_from_list(manager, data, dt_corr, dt_tol, list_path=LIST_PATH, lerp_delta=0.5):
+    acc, recall = 0, 0
     if "label" in data.columns:
         data = data.drop("label", axis=1)
-    pred_data = S.corrected_prediction(manager, data, dt_corr)
+    pred_data = S.corrected_prediction(manager, data, dt_corr, plot=False)
     pred_data["epoch"] = data["epoch"]
     pred_var = get_var(pred_data)
     pred_var = get_category(pred_var)
@@ -46,27 +36,15 @@ def metrics_from_list(manager, data, dt_corr, dt_tol, list_path=LIST_PATH, lerp_
     end_epoch = next(i - 1 for i, e in true_data.iterrows() if e["epoch"] > pred_data.at[pred_data.count()[0]-1, "epoch"])
     true_cross = true_data.loc[begin_epoch:end_epoch,:]
     true_cross.index = [i for i in range(true_cross.count()[0])]
-    acc, recall = acc_recall_from_epochs(true_cross, pred_cross, dt_tol)
+        # Add an element so the end of each list is the same for the rupture's function
+    try:
+        true_cross.at[true_cross.count()[0]-1, "epoch"] = pred_cross.at[pred_cross.count()[0]-1, "epoch"]
+        # Compute metrics
+        acc, recall = precision_recall(true_cross["epoch"], pred_cross["epoch"], dt_tol)
+    except:
+        pass
     print("Accuracy: " + str(acc))
     print("Recall: " + str(recall))
-    return acc, recall
-
-"""
-"""
-def acc_recall_from_epochs(true_data, pred_data, dt_tol):
-    # Apply tolerance on epochs
-    true_pos, false_pos, false_neg = 0, 0, 0
-    c_true_data = true_data.copy()
-    for i, pred_epoch in enumerate(pred_data["epoch"]):
-        index = next((j for j, true_epoch in enumerate(c_true_data["epoch"]) if abs(pred_epoch - true_epoch) < dt_tol), None)
-        if(index is not None):
-            true_pos += 1
-            c_true_data = c_true_data.drop(c_true_data.index[index])
-        else:
-            false_pos += 1
-    false_neg = true_data.count()[0] - true_pos
-    acc = true_pos / (true_pos + false_pos)
-    recall = true_pos / (true_pos + false_neg)
     return acc, recall
 
 """

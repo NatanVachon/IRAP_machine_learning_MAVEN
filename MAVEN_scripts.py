@@ -14,6 +14,7 @@ import MAVEN_postprocessing as pop
 import MAVEN_evaluation as ev
 import MAVEN_communication_AMDA as acom
 import MAVEN_prediction as pred
+import mlp
 
 SAVE_PATH = "d:/natan/Documents/IRAP/Data/datasets/"
 #SHOCK_LIST_PATH = '../Data/datasets/ShockMAVEN_dt1h_list.txt'
@@ -66,26 +67,24 @@ def test(ANN, data, dt_corr, dt_tol):
     return acc, recall
 """
 """
-def corrected_prediction(manager, dataset, dt_corr):
+def corrected_prediction(manager, dataset, dt_corr, plot = True):
     if 'label' in dataset.columns:
-        unseen_data = dataset.drop('label', axis = 1)
+        proba = manager.get_prob(dataset.drop(["epoch", "label"], axis=1))
     else:
-        unseen_data = dataset.copy()
-    init_pred = manager.get_pred(unseen_data.drop("epoch", axis=1))
-    proba = manager.get_prob(unseen_data.drop("epoch", axis=1))
-    init_pred["epoch"] = proba["epoch"] = dataset["epoch"]
+        proba = manager.get_prob(dataset.drop("epoch", axis=1))
+    proba["epoch"] = dataset["epoch"]
+    corr_pred = pop.get_corrected_pred(proba, dt_corr)
 
-    corr_pred = pop.get_corrected_pred(init_pred, proba, dt_corr)
-
-    # Plot data
-    if 'label' in dataset.columns:
-        plt.plot(dataset.index, dataset.label, 'g-')
-    plt.plot(corr_pred.index, corr_pred.label, 'b-')
-    if 'label' in dataset.columns:
-        plt.legend(['True label', 'Predicted label'], loc = 'upper right')
-    else:
-        plt.legend(['Predicted label'], loc = 'upper right')
-    plt.show()
+    if plot:
+        # Plot data
+        if 'label' in dataset.columns:
+            plt.plot(dataset.index, dataset.label, 'g-')
+        plt.plot(corr_pred.index, corr_pred.label, 'b-')
+        if 'label' in dataset.columns:
+            plt.legend(['True label', 'Predicted label'], loc = 'upper right')
+        else:
+            plt.legend(['Predicted label'], loc = 'upper right')
+        plt.show()
     return corr_pred #,vcorr, final_crossings
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
