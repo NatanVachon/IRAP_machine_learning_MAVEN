@@ -10,9 +10,6 @@ import MAVEN_evaluation as ev
 
 import pandas as pd
 import statistics as stat
-import numpy as np
-import collections
-import time
 
 """
 Based on a density of crossings, returns a list of dates associated to the peaks and
@@ -55,56 +52,62 @@ def final_list(y_density):
 Different version of postprocessing on raw probabilities
 Instead of comparing the global probability on detected classes, we just compare
 the mean probabilities within the sliding window
+
+This function is optimized because it is computation heavy
 """
 def get_corrected_pred(timed_proba, Dt):
     n = timed_proba.count()[0]
-    corr = pd.DataFrame()
-    corr["epoch"] = timed_proba["epoch"]
-    corr["label"] = [0 for i in range(n)]
     # Boudary effect offset, 4 corresponds to the 4s timestep
     delta = int(Dt/4/2)
     i_delta = 1.0 / (2.0 * delta + 1)
     # Initialize queues
-    mean_probas = np.zeros((3, 1))
+    mean_probas = [0.0, 0.0, 0.0]
     first_rows = timed_proba.iloc[0:2 * delta]
-    sw_queue = collections.deque(first_rows["prob_sw"], maxlen=2 * delta)
-    sh_queue = collections.deque(first_rows["prob_sh"], maxlen=2 * delta)
-    ev_queue = collections.deque(first_rows["prob_ev"], maxlen=2 * delta)
 
-    sw_list, sw_i = [e * i_delta for i, e in first_rows["prob_sw"]], 0
-    sh_list, sh_i = [e * i_delta for i, e in first_rows["prob_sh"]], 0
-    ev_list, ev_i = [e * i_delta for i, e in first_rows["prob_ev"]], 0
-    mean_probas[2] = np.sum(sw_list)
-    mean_probas[1] = np.sum(sh_list)
-    mean_probas[0] = np.sum(ev_list)
+    sw_list = [e * i_delta for e in first_rows["prob_sw"]]
+    sh_list = [e * i_delta for e in first_rows["prob_sh"]]
+    ev_list = [e * i_delta for e in first_rows["prob_ev"]]
+    i_list = 0
+    mean_probas[2] = sum(sw_list)
+    mean_probas[1] = sum(sh_list)
+    mean_probas[0] = sum(ev_list)
     k = len(ev_list)
+    prop_sw_list = timed_proba["prob_sw"].tolist()
+    prop_sh_list = timed_proba["prob_sh"].tolist()
+    prop_ev_list = timed_proba["prob_ev"].tolist()
 
-    begin = time.time()
+    labels = [0 for i in range(n)]
     for i in range(delta, n - delta):
         # Compute mean probas
-#        mean_probas[2] = np.mean(sw_queue)
-#        mean_probas[1] = np.mean(sh_queue)
-#        mean_probas[0] = np.mean(ev_queue)
-        # Get argmax
-        corr.at[i, 'label'] = np.argmax(mean_probas)
         # Update queues
-#        sw_queue.append(timed_proba.at[i + delta, "prob_sw"])
-#        sh_queue.append(timed_proba.at[i + delta, "prob_sh"])
-#        ev_queue.append(timed_proba.at[i + delta, "prob_ev"])
-        mean_probas[2] = mean_probas[2] - sw_list[sw_i] + timed_proba.at[i + delta, "prob_sw"]
-        mean_probas[1] = mean_probas[1] - sh_list[sh_i] + timed_proba.at[i + delta, "prob_sh"]
-        mean_probas[0] = mean_probas[0] - ev_list[ev_i] + timed_proba.at[i + delta, "prob_ev"]
+        mean_probas[2] -= sw_list[i_list]
+        mean_probas[1] -= sh_list[i_list]
+        mean_probas[0] -= ev_list[i_list]
 
-        sw_list[sw_i] = timed_proba.at[i + delta, "prob_sw"]
-        sw_i = (sw_i + 1) % k
-        sw_list[sh_i] = timed_proba.at[i + delta, "prob_sh"]
-        sw_i = (sh_i + 1) % k
-        sw_list[ev_i] = timed_proba.at[i + delta, "prob_ev"]
-        sw_i = (ev_i + 1) % k
-    print(time.time() - begin)
+        sw_list[i_list] = prop_sw_list[i + delta] * i_delta
+        sh_list[i_list] = prop_sh_list[i + delta] * i_delta
+        ev_list[i_list] = prop_ev_list[i + delta] * i_delta
+
+        mean_probas[2] += sw_list[i_list]
+        mean_probas[1] += sh_list[i_list]
+        mean_probas[0] += ev_list[i_list]
+
+        # Get argmax
+        index, m = 0, mean_probas[0]
+        if m < mean_probas[1]:
+            m = mean_probas[1]
+            index = 1
+        if m < mean_probas[2]:
+            index = 2
+        labels[i] = index
+
+        i_list = 0 if i_list == k - 1 else i_list + 1
     # Fill boundary labels
-    corr.loc[:delta, "label"] = corr.at[delta, "label"]
-    corr.loc[n - delta:, "label"] = corr.at[n - delta - 1, "label"]
+    for i in range(delta):
+        labels[i], labels[n - i - 1] = labels[delta], labels[n - delta - 1]
+    corr = pd.DataFrame()
+    corr["epoch"] = timed_proba["epoch"]
+    corr["label"] = labels
     return corr
 
 """
