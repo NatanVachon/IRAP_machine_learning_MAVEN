@@ -14,12 +14,40 @@ from ruptures.metrics import precision_recall
 
 import MAVEN_scripts as S
 
-LIST_PATH = '../Data/datasets/ShockMAVEN_dt1h_list.txt'
+LIST_PATH = "../Data/datasets/ShockMAVEN_dt1h_list.txt"
+
+def raw_eval(pred_list, dt_tol, list_path=LIST_PATH):
+    pred_list.sort()
+
+    pred_data = pd.DataFrame()
+    pred_data["epoch"] = [pd.Timestamp(pred_list[i]).timestamp() for i in range(len(pred_list))]
+    pred_data.index = [i for i in range(pred_data.count()[0])]
+    # Gather shock epoch
+    true_data = pd.read_csv(list_path)
+    for i in range(true_data.count()[0]):
+        true_data.at[i, "epoch"] = pd.Timestamp(true_data.at[i, "epoch"]).timestamp()
+    # Find begin and end index
+    begin_epoch = next(i - 1 for i, e in true_data.iterrows() if e["epoch"] > pred_data.at[0, "epoch"])
+    end_epoch = next(i - 1 for i, e in true_data.iterrows() if e["epoch"] > pred_data.at[pred_data.count()[0]-1, "epoch"])
+    true_cross = true_data.loc[begin_epoch:end_epoch,:]
+    true_cross.index = [i for i in range(true_cross.count()[0])]
+
+    #Compute metrics
+    acc, recall = 0, 0
+    if(true_cross.count()[0] != 0 and pred_data.count()[0] != 0):
+        # Add an element so the end of each list is the same for the rupture's function
+        true_cross.at[true_cross.count()[0]-1, "epoch"] = pred_data.at[pred_data.count()[0]-1, "epoch"]
+        # Compute metrics
+        acc, recall = precision_recall(true_cross["epoch"], pred_data["epoch"], dt_tol)
+    else:
+        acc, recall = -1, -1
+    print("Accuracy: " + str(acc))
+    print("Recall: " + str(recall))
+    return acc, recall
 
 """
 """
-def metrics_from_list(manager, data, dt_corr, dt_tol, list_path=LIST_PATH, lerp_delta=0.5):
-    acc, recall = 0, 0
+def metrics_from_list(manager, data, dt_corr, dt_tol, list_path=LIST_PATH, lerp_delta=0.7):
     if "label" in data.columns:
         data = data.drop("label", axis=1)
     pred_data = S.corrected_prediction(manager, data, dt_corr, plot=False)
@@ -32,17 +60,23 @@ def metrics_from_list(manager, data, dt_corr, dt_tol, list_path=LIST_PATH, lerp_
     for i in range(true_data.count()[0]):
         true_data.at[i, "epoch"] = pd.Timestamp(true_data.at[i, "epoch"]).timestamp()
     # Find begin and end index
-    begin_epoch = next(i for i, e in true_data.iterrows() if e["epoch"] > pred_data.at[0, "epoch"])
+    begin_epoch = next(i - 1 for i, e in true_data.iterrows() if e["epoch"] > pred_data.at[0, "epoch"])
     end_epoch = next(i - 1 for i, e in true_data.iterrows() if e["epoch"] > pred_data.at[pred_data.count()[0]-1, "epoch"])
     true_cross = true_data.loc[begin_epoch:end_epoch,:]
     true_cross.index = [i for i in range(true_cross.count()[0])]
+
+    #Compute metrics
+    acc, recall = 0, 0
+    if(true_cross.count()[0] != 0 and pred_cross.count()[0] != 0):
         # Add an element so the end of each list is the same for the rupture's function
-    try:
         true_cross.at[true_cross.count()[0]-1, "epoch"] = pred_cross.at[pred_cross.count()[0]-1, "epoch"]
-        # Compute metrics
-        acc, recall = precision_recall(true_cross["epoch"], pred_cross["epoch"], dt_tol)
-    except:
-        pass
+        try:
+            # Compute metrics
+            acc, recall = precision_recall(true_cross["epoch"], pred_cross["epoch"], dt_tol)
+        except:
+            pass
+    else:
+        acc, recall = -1, -1
     print("Accuracy: " + str(acc))
     print("Recall: " + str(recall))
     return acc, recall
@@ -78,7 +112,6 @@ def graph_pred_from_var(true_var, pred_var, data_name=''):
         pred_toplot[0].append(epoch)
         pred_toplot[1].append(prec_class)
         pred_toplot[1].append(follow_class)
-
 
     ax.plot(pd.to_datetime(true_toplot[0], unit='s'), true_toplot[1], linestyle='--', linewidth = 2, color = 'green')
     ax.plot(pd.to_datetime(pred_toplot[0], unit='s'), pred_toplot[1], color = 'red', linewidth=0.9)

@@ -14,7 +14,6 @@ import MAVEN_postprocessing as pop
 import MAVEN_evaluation as ev
 import MAVEN_communication_AMDA as acom
 import MAVEN_prediction as pred
-import mlp
 
 SAVE_PATH = "d:/natan/Documents/IRAP/Data/datasets/"
 #SHOCK_LIST_PATH = '../Data/datasets/ShockMAVEN_dt1h_list.txt'
@@ -55,19 +54,19 @@ Inputs:
     int                batch size
     str                mlp name
 """
-def train_nn(manager, dataset):
-    history = manager.run_training(dataset.drop("epoch", axis=1))
+def train_nn(manager, dataset, verbose=1):
+    history = manager.run_training(dataset.drop("epoch", axis=1), verbose=verbose)
     return history
 
 """
 """
-def test(ANN, data, dt_corr, dt_tol):
-    pred_data = corrected_prediction(ANN, data, dt_corr)
-    acc, recall = ev.metrics_with_tolerances(data, pred_data, dt_tol)
-    return acc, recall
+def test(manager, data, dt_corr):
+    pred_data = corrected_prediction(manager, data, dt_corr, plot=False)
+    manager.cm, _ = ev.get_confusion_matrices(data["label"], pred_data["label"])
+    return manager.cm
 """
 """
-def corrected_prediction(manager, dataset, dt_corr, plot = True):
+def corrected_prediction(manager, dataset, dt_corr=70, plot=True):
     if 'label' in dataset.columns:
         proba = manager.get_prob(dataset.drop(["epoch", "label"], axis=1))
     else:

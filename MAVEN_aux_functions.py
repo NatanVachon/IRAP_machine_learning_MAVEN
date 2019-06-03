@@ -101,23 +101,36 @@ def metrics_over_dt(ANN, data, delta_t_list):
 
     return accs, recalls
 
-def plot_data(x, y, legend, xLabel="", yLabel=""):
+def plot_data(x, y, legend=[], shapes=None, xLabel="", yLabel=""):
     plt.figure()
-    for i in range(len(y)):
-        plt.plot(x, y[i])
+    if shapes is None:
+        for i in range(len(y)):
+            plt.plot(x, y[i])
+    else:
+        for i in range(len(y)):
+            plt.plot(x, y[i], shapes[i])
     plt.xlabel(xLabel)
     plt.ylabel(yLabel)
     plt.legend(legend)
     plt.grid()
     plt.show()
 
-def test_lerp(pred_data, n):
+def test_lerp(manager, data, n):
     accs, recalls = [], []
     for i in range(n+1):
-        acc, recall = ev.metrics_from_list(pred_data, 10*60, lerp_delta=float(i)/n)
+        acc, recall = ev.metrics_from_list(manager, data, 60, 10*60, lerp_delta=float(i)/n)
         accs.append(acc)
         recalls.append(recall)
-    plot_data([i for i in range(n+1)], [accs, recalls], [i for i in range(n+1)])
+    plot_data([i for i in range(n+1)], [accs, recalls], legend=[i for i in range(n+1)])
+    return accs, recalls
+
+def dt_corr_optim(manager, data, dts):
+    accs, recalls = [], []
+    for dt in dts:
+        acc, recall = ev.metrics_from_list(manager, data, dt, 5*60)
+        accs.append(acc)
+        recalls.append(recall)
+    plot_data(dts, [accs, recalls], [str(dt) for dt in dts])
     return accs, recalls
 
 def duplicate_epochs(filepath):
@@ -166,20 +179,18 @@ def plot_acc_func_of_train_sample_nb(data_train, data_test, percents):
     plot_data(shock_nb, [accuracies, recalls], ["acc", "recalls"])
     return recalls, accuracies, shock_nb
 
-def co_learning_matrix(n):
+def co_learning_matrix(I, J):
     manager = tm.TrainingManager()
-    manager["epochs_nb"] = 70
-    A, R = np.zeros((n, n)), np.zeros((n, n))
-    for i in range(n):
-        if i == 3:
-            continue
-        data_train = load_dataset(i+1)
-        for j in range(n):
-            if i == j or j == 3:
-                continue
-            data_test = load_dataset(j+1)
+    manager["batch_size"] = 256
+    manager["epochs_nb"] = 50
+    manager["layers_sizes"] = [8, 7, 5, 3]
+    A, R = np.zeros((max(I), max(J))), np.zeros((max(I), max(J)))
+    for i in I:
+        data_train = load_dataset(i)
+        for j in J:
+            data_test = load_dataset(j)
             _ = S.train_nn(manager, data_train)
             acc, recall = ev.metrics_from_list(manager, data_test, 60, 5*60)
-            A[i, j] = acc
-            R[i, j] = recall
+            A[i-1, j-1] = acc
+            R[i-1, j-1] = recall
     return A, R

@@ -12,13 +12,15 @@ import mlp
 import preprocessing as prp
 import pickle as pkl
 import pandas as pd
+import evaluation as ev
+import numpy as np
 from sklearn.metrics import confusion_matrix
 import os
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
                                                    DEFAULT PARAMETERS
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-SAVE_PATH = "../Data/managers/"
+SAVE_PATH = ""
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
                                                    CLASSES DEFINITION
@@ -68,9 +70,8 @@ class TrainingManager:
         print("Epochs number: " + str(self.params["epochs_nb"]))
         print("Batch size: " + str(self.params["batch_size"]))
         print("Test size: " + str(self.params["test_size"]))
-        print("Loss function: " + str(self.params["loss_function"]))
 
-    def run_training(self, dataset, loss_function = mlp.jaccard_distance):
+    def run_training(self, dataset=None, weight=0, loss_function = mlp.jaccard_distance, verbose=1):
         """
         Train a new neural network according to the manager's paremeters
         dataset: DataFrame whose columns are features and lines are train samples
@@ -78,11 +79,16 @@ class TrainingManager:
         Returns: Training history
         """
         # Prepare data
-        timed_dataset = prp.split_data(dataset, test_size=self.params["test_size"])
-        train_dataset, self.scaler = prp.scale_and_format(timed_dataset[0], timed_dataset[1], timed_dataset[2], timed_dataset[3])
+        split_dataset = prp.split_data(dataset, test_size=self.params["test_size"])
+        train_dataset, self.scaler = prp.scale_and_format(split_dataset[0], split_dataset[1], split_dataset[2], split_dataset[3])
+        if weight:
+            weight_list = prp.compute_weights(split_dataset[2])
+        else:
+            weight_list = None
+        
         # Train
-        self.model, history = mlp.run_training(train_dataset, self.params["layers_sizes"], self.params["layers_activations"], self.params["epochs_nb"],
-                                               self.params["batch_size"], self.params["test_size"], loss_function)
+        self.model, history = mlp.run_training(train_dataset, layers_sizes=self.params["layers_sizes"], layers_activations=self.params["layers_activations"], epochs_nb=self.params["epochs_nb"],
+                                               batch_size=self.params["batch_size"], weight_list = weight_list, loss_function=loss_function, verbose=verbose)
         # return history
         return history
 
@@ -134,8 +140,6 @@ class TrainingManager:
         pred_labels = pd.DataFrame()
         pred_labels["label"] = self.get_pred(test_data.drop("label", axis=1))["label"]
         self.cm = confusion_matrix(true_labels, pred_labels)
-        # Save manager
-        self.save()
         return self.cm
 
     def save(self, path=SAVE_PATH):
@@ -172,8 +176,8 @@ def loadManager(path):
     # Get folder name
     filename = path.split('/')[-1]
     # Checks if folder exists
-    if not os.path.isdir(filename):
-        print("Training manager " + filename + " doesnt exists")
+    if not os.path.isdir(path):
+        print("Training manager " + filename + " doesn't exists")
         return
     #Load data
     loaded = TrainingManager()

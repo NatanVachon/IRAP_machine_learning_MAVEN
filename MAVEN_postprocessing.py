@@ -53,7 +53,7 @@ Different version of postprocessing on raw probabilities
 Instead of comparing the global probability on detected classes, we just compare
 the mean probabilities within the sliding window
 
-This function is optimized because it is computation heavy
+This function is optimized because of its computation heaviness
 """
 def get_corrected_pred(timed_proba, Dt):
     n = timed_proba.count()[0]
