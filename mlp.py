@@ -13,6 +13,9 @@ import keras.backend as B
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Dropout
+from keras.utils import CustomObjectScope
+from keras.initializers import glorot_uniform
+
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
                                                    DEFAULT PARAMETERS
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -121,5 +124,6 @@ def load_model(path):
     """
     Loads an existing model
     """
-    model = ks.models.load_model(path, custom_objects={'jaccard_distance': jaccard_distance})
+    with CustomObjectScope({'GlorotUniform': glorot_uniform()}):
+        model = ks.models.load_model(path, custom_objects={'jaccard_distance': jaccard_distance})
     return model

@@ -12,6 +12,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from keras.utils.vis_utils import plot_model
+from sklearn.metrics import accuracy_score, recall_score
 
 import MAVEN_communication_AMDA as acom
 import MAVEN_prediction as pred
@@ -21,9 +22,7 @@ import TrainingManagment as tm
 import numpy as np
 
 def load_dataset(n):
-    data = pd.read_csv("../Data/datasets/MAVEN_V4_datasets/MAVEN_V4_" + str(n) + "00.txt")
-    data = data.drop("SWIA_qual", axis=1)
-    return data
+    return pd.read_csv("../Data/datasets/MAVEN_V4_datasets/MAVEN_V4_" + str(n) + "00.txt").drop("SWIA_qual", axis=1)
 
 def save_epoch_label(data, filepath):
     file = open(filepath, 'w')
@@ -66,6 +65,7 @@ def rupture_detection_comparison(common_shocks, gru_common, fang_common, sample_
         shock_data = acom.download_multiparam_df(shock_begin, shock_end)
         shock_epoch = shock_data.at[int(pred.compute_shock_position(shock_data)), 'epoch']
         ruptures_epochs.append(shock_epoch)
+
     # Compute deltas
     gru_deltas = []
     fang_deltas = []
@@ -115,6 +115,33 @@ def plot_data(x, y, legend=[], shapes=None, xLabel="", yLabel=""):
     plt.grid()
     plt.show()
 
+def plot_trial(trial):
+    losses = [-t["result"]["loss"] for t in trial.trials]
+    X = [t["misc"]["vals"]["fl_neuron_nb"][0] for t in trial.trials]
+    Y = [t["misc"]["vals"]["sl_neuron_nb"][0] for t in trial.trials]
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(X, Y, losses)
+    #ax.plot_trisurf(X, Y, losses)
+    ax.grid()
+    plt.show()
+    return
+
+def plot_histories(histories, legends):
+    plt.figure()
+    for i in range(len(histories)):
+        plt.plot(histories[i].history['acc'])
+    plt.grid()
+    plt.legend(legends, loc='upper left')
+    #plt.ylim(0.95, 1)
+
+    plt.figure()
+    for i in range(len(histories)):
+        plt.plot(histories[i].history['loss'])
+    plt.grid()
+    plt.legend(legends, loc='lower left')
+    #plt.ylim(0, 0.1)
+
 def test_lerp(manager, data, n):
     accs, recalls = [], []
     for i in range(n+1):
@@ -124,13 +151,13 @@ def test_lerp(manager, data, n):
     plot_data([i for i in range(n+1)], [accs, recalls], legend=[i for i in range(n+1)])
     return accs, recalls
 
-def dt_corr_optim(manager, data, dts):
+def plot_dt_tol_metrics(manager, data, dts):
     accs, recalls = [], []
     for dt in dts:
-        acc, recall = ev.metrics_from_list(manager, data, dt, 5*60)
+        acc, recall = ev.metrics_from_list(manager, data, 3*60, dt)
         accs.append(acc)
         recalls.append(recall)
-    plot_data(dts, [accs, recalls], [str(dt) for dt in dts])
+    plot_data([dt / 60 for dt in dts], [accs, recalls], ["Acc", "Recall"], xLabel="delta_t")
     return accs, recalls
 
 def duplicate_epochs(filepath):
@@ -161,23 +188,34 @@ def plot_histograms(datas):
             plt.show()
     return
 
-def plot_acc_func_of_train_sample_nb(data_train, data_test, percents):
-    manager = tm.TrainingManager()
-    manager["epochs_nb"] = 30
-    manager["batch_size"] = 64
-    recalls = []
+def plot_acc_func_of_train_sample_nb(manager, data_train, data_test, percents):
+    losses = []
     accuracies = []
     shock_nb = []
-    n = data_train.count()[0] / 100
+    n = len(data_train) / 100
     for i in percents:
-        subset = data_train.loc[:i * n]
+        subset = data_train.loc[:int(i * n)]
         _ = S.train_nn(manager, subset)
-        acc, recall = ev.metrics_from_list(manager, data_test, 60, 5*60)
-        recalls.append(recall)
+        pred = manager.get_pred(data_train.drop("epoch", axis=1))
+        acc, loss = accuracy_score(data_train["label"], pred["label"]), recall_score(data_train["label"], pred["label"], average="weighted")
+        losses.append(loss)
         accuracies.append(acc)
         shock_nb.append(i)
-    plot_data(shock_nb, [accuracies, recalls], ["acc", "recalls"])
-    return recalls, accuracies, shock_nb
+    plot_data(shock_nb, [accuracies, losses], ["acc", "loss"])
+    return losses, accuracies
+
+def plot_acc_recall(accs, recalls):
+    plt.figure()
+    plt.plot(accs[1], recalls[1], 'ro')
+    plt.plot(accs[0], recalls[0], 'bo')
+    plt.xlabel("Accuracy")
+    plt.ylabel("Recall")
+    plt.title("K-Fold metrics with dt_tol = 5min")
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.grid()
+    plt.show()
+    return
 
 def co_learning_matrix(I, J):
     manager = tm.TrainingManager()
@@ -194,3 +232,62 @@ def co_learning_matrix(I, J):
             A[i-1, j-1] = acc
             R[i-1, j-1] = recall
     return A, R
+
+def recompute_probas():
+    raw_data = pd.read_csv("../Data/datasets/MAVEN_V4_datasets/MAVEN_V4_FULL.txt")
+    data = raw_data.copy().drop("label", axis=1)
+    output_df = pd.DataFrame(columns=list(data.columns)+["proba_ev", "proba_sh", "proba_sw"])
+    begin, end = 0, 0
+    while True:
+        begin = end
+        end = next((i + 1 for i in range(begin + 1, len(data) - 1) if data.at[i + 1, "epoch"] - data.at[i, "epoch"] > 10), None)
+        if end is None:
+            break
+        print("begin", begin, "end", end)
+        temp_data = data.iloc[begin:end]
+        temp_data.index = [i for i in range(len(temp_data))]
+        temp_data = pred.predict_file(temp_data, continuous=True)
+        output_df = pd.concat([output_df, temp_data], ignore_index=True)
+    output_df.to_csv("MAVEN_FULL_proba.txt", encoding = 'utf-8', index = False)
+    return
+
+def clean_dataset():
+    data = pd.read_csv("../Data/datasets/MAVEN_V4_datasets/MAVEN_V4_FULL.txt").drop("label", axis=1)
+    output_df = pd.DataFrame()
+    begin, end = 0, 0
+    while end is not None:
+        begin = end
+        end = next((i + 1 for i in range(begin + 1, len(data) - 1) if data.at[i + 1, "epoch"] - data.at[i, "epoch"] > 10), None)
+        print("begin", begin, "end", end)
+        temp_data = data.iloc[begin:end]
+
+        # Compute shock boundaries
+        begin_shock, end_shock = pred.compute_boundary_indexes(temp_data)
+
+        # Split data in three parts
+        first_part = temp_data.iloc[:begin_shock].copy()
+        last_part = temp_data.iloc[end_shock:].copy()
+
+        # Compute direction
+        direction = pred.compute_direction(first_part, last_part)
+
+        if(direction != 1):
+            output_df = pd.concat([output_df, temp_data], ignore_index=True)
+    output_df.to_csv("MAVEN_FULL.txt", encoding = 'utf-8', index = False)
+    return output_df
+
+def suppr(data, pred):
+    plt.figure()
+    for i in range(len(data.columns) - 1):
+        ax = plt.subplot(len(data.columns), 1, i + 1)
+        ax.plot(data["epoch"], data.iloc[:, i + 1])
+        plt.grid()
+    ax = plt.subplot(len(data.columns), 1, len(data.columns))
+    ax.plot(pred["epoch"], pred["label"], "g-")
+    plt.ylim(0, 2)
+    plt.grid()
+    plt.show()
+    return
+
+
+

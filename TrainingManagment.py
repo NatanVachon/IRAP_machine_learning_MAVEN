@@ -13,7 +13,6 @@ import preprocessing as prp
 import pickle as pkl
 import pandas as pd
 import evaluation as ev
-import numpy as np
 from sklearn.metrics import confusion_matrix
 import os
 
@@ -58,7 +57,10 @@ class TrainingManager:
         return self.params[index]
 
     def __setitem__(self, index, item):
-        self.params[index] = item
+        if index in self.params.keys():
+            self.params[index] = item
+        else:
+            raise IndexError("Index doesn't exists")
 
     def print_param(self):
         """
@@ -71,13 +73,14 @@ class TrainingManager:
         print("Batch size: " + str(self.params["batch_size"]))
         print("Test size: " + str(self.params["test_size"]))
 
-    def run_training(self, dataset=None, weight=0, loss_function = mlp.jaccard_distance, verbose=1):
+    def run_training(self, dataset=None, weight=False, loss_function = mlp.jaccard_distance, verbose=1):
         """
         Train a new neural network according to the manager's paremeters
         dataset: DataFrame whose columns are features and lines are train samples
 
         Returns: Training history
         """
+
         # Prepare data
         split_dataset = prp.split_data(dataset, test_size=self.params["test_size"])
         train_dataset, self.scaler = prp.scale_and_format(split_dataset[0], split_dataset[1], split_dataset[2], split_dataset[3])
@@ -85,7 +88,7 @@ class TrainingManager:
             weight_list = prp.compute_weights(split_dataset[2])
         else:
             weight_list = None
-        
+
         # Train
         self.model, history = mlp.run_training(train_dataset, layers_sizes=self.params["layers_sizes"], layers_activations=self.params["layers_activations"], epochs_nb=self.params["epochs_nb"],
                                                batch_size=self.params["batch_size"], weight_list = weight_list, loss_function=loss_function, verbose=verbose)
@@ -101,7 +104,7 @@ class TrainingManager:
         """
         # Scale data
         # Remove label if necessary
-        if "label" in data.columns:
+        if isinstance(data, pd.DataFrame) and "label" in data.columns:
             scaled_data = self.scaler.transform(data.drop("label", axis=1))
         else:
             scaled_data = self.scaler.transform(data)
@@ -148,8 +151,7 @@ class TrainingManager:
         path: Folder where you want to save the training manager
         """
         if self.model is None:
-            print("No model attached. Nothing to save")
-            return
+            raise AttributeError("Nothing to save, model not trained yet")
         # Construct saved object
         to_save = {"name":self.name, "params":self.params, "scaler":self.scaler, "cm":self.cm}
         # Create folder
@@ -177,8 +179,7 @@ def loadManager(path):
     filename = path.split('/')[-1]
     # Checks if folder exists
     if not os.path.isdir(path):
-        print("Training manager " + filename + " doesn't exists")
-        return
+        raise ValueError("Training manager " + filename + " doesn't exists")
     #Load data
     loaded = TrainingManager()
     f = open(path + '/' + filename + ".pkl", "rb")

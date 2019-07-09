@@ -10,8 +10,8 @@ import io
 import pandas as pd
 
 # Username and password
-USERNAME = "vachon"
-PASSWORD = "virapass"
+USERNAME = "XXXX"
+PASSWORD = "XXXX"
 
 # URLs
 REQUEST_URL = "http://amda.irap.omp.eu/php/rest/getParameter.php"
@@ -27,8 +27,12 @@ SAVE_PATH = "d:/natan/Documents/IRAP/Data/datasets/"
 BEGIN_DATE = '2014-11-14T17:33:30'
 END_DATE = '2014-11-14T19:33:30'
 
-PARAMETER_NAMES = ["mav_xyz_mso(0)", "ws_0", "ws_1", "ws_5", "ws_2", "ws_3", "mav_swiakp_qual", "mav_swiakp_vmso(0)", "ws_7"]
-PARAMETER_COLS = [["epoch", "x"], ["epoch", "rho"], ["epoch", "deriv_r"], ["epoch", "mag_var"], ["epoch", "totels_1"], ["epoch", "totels_8"], ["epoch", "SWIA_qual"], ["epoch", "SWIA_vel_x"], ["epoch", "temp"]]
+# MAVEN
+PARAMETER_NAMES = ["mav_xyz_mso(0)", "ws_0", "ws_1", "ws_5", "ws_2", "ws_3", "mav_swiakp_vmso(0)", "ws_7"]
+# VEX
+#PARAMETER_NAMES  = ["vex_xyz_vso(0)", "ws_10", "ws_11", "ws_12", "ws_14", "ws_15", "vex_h_vel(0)", "vex_h_temp"]
+
+PARAMETER_COLS = [["epoch", "x"], ["epoch", "rho"], ["epoch", "deriv_r"], ["epoch", "mag_var"], ["epoch", "totels_1"], ["epoch", "totels_8"], ["epoch", "SWIA_vel_x"], ["epoch", "temp"]]
 
 """
 Returns a valid token to connect to AMDA
@@ -99,11 +103,12 @@ def download_single_df(start_time, end_time, paramID, column_names):
 Returns a dataframe of parameters in param_list between start_time and end_time
 Uses AMDA web service
 """
-def download_multiparam_df(start_time, end_time, param_list = PARAMETER_NAMES, param_col_names = PARAMETER_COLS):
+def download_multiparam_df(start_time, end_time, param_list = PARAMETER_NAMES, param_col_names = PARAMETER_COLS, verbose=False):
     dfs = []
     col_index = 0
     for i in range(len(param_list)):
-        print(param_list[i] +' loading...')
+        if verbose:
+            print(param_list[i] +' loading...')
         df = download_single_df(start_time, end_time, param_list[i], param_col_names[i])
         if i>0:
             df = df.iloc[:,1:]
@@ -111,6 +116,9 @@ def download_multiparam_df(start_time, end_time, param_list = PARAMETER_NAMES, p
         col_index = col_index + df_dim
         dfs.append(df)
     complete = dfs[0].join(dfs[1:])
+    # Convert strings to float timestamps
+    for i in range(len(complete)):
+        complete.at[i, "epoch"] = pd.Timestamp(complete.at[i, "epoch"]).timestamp()
     return complete
 
 """
@@ -118,12 +126,9 @@ Saves a pandas.DataFrame() to a certain path
 """
 def save_df(dataset, path, name):
     saved_df = dataset.copy()
-    # Convert strings to float timestamps
-    for i in range(saved_df.count()[0]):
-        saved_df['epoch'].at[i] = pd.Timestamp(saved_df['epoch'].at[i]).timestamp()
     # Save data
     saved_df.to_csv(path + name + '.txt', encoding = 'utf-8', index = False)
-    return saved_df
+    return
 
 """
 Main function definition

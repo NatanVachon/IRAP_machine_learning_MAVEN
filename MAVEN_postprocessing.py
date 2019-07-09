@@ -55,14 +55,31 @@ the mean probabilities within the sliding window
 
 This function is optimized because of its computation heaviness
 """
-def get_corrected_pred(timed_proba, Dt):
-    n = timed_proba.count()[0]
+# =============================================================================
+# def get_corrected_pred(timed_proba, Dt, continuous=False):
+#     begin, end = 0, 0
+#     corr = pd.DataFrame()
+#     while end != len(timed_proba):
+#         end = next((i + 1 for i in range(begin, len(timed_proba) - 1) if timed_proba.at[i + 1, "epoch"] - timed_proba.at[i, "epoch"] > 10), None)
+#         if end is None:
+#             end = len(timed_proba)
+#
+#         subset = timed_proba.loc[begin:end-1]
+#         corr_subset = get_corrected_shock(subset, Dt, continuous)
+#         corr = pd.concat([corr, corr_subset], ignore_index=True)
+#         begin = end
+#     return corr
+# =============================================================================
+"""
+"""
+def get_corrected_pred(t_proba_shock, dt, continuous):
+    n = len(t_proba_shock)
     # Boudary effect offset, 4 corresponds to the 4s timestep
-    delta = int(Dt/4/2)
+    delta = int(dt/4/2)
     i_delta = 1.0 / (2.0 * delta + 1)
     # Initialize queues
     mean_probas = [0.0, 0.0, 0.0]
-    first_rows = timed_proba.iloc[0:2 * delta]
+    first_rows = t_proba_shock.iloc[0:2 * delta]
 
     sw_list = [e * i_delta for e in first_rows["prob_sw"]]
     sh_list = [e * i_delta for e in first_rows["prob_sh"]]
@@ -72,41 +89,61 @@ def get_corrected_pred(timed_proba, Dt):
     mean_probas[1] = sum(sh_list)
     mean_probas[0] = sum(ev_list)
     k = len(ev_list)
-    prop_sw_list = timed_proba["prob_sw"].tolist()
-    prop_sh_list = timed_proba["prob_sh"].tolist()
-    prop_ev_list = timed_proba["prob_ev"].tolist()
+    prop_sw_list = t_proba_shock["prob_sw"].tolist()
+    prop_sh_list = t_proba_shock["prob_sh"].tolist()
+    prop_ev_list = t_proba_shock["prob_ev"].tolist()
 
     labels = [0 for i in range(n)]
-    for i in range(delta, n - delta):
-        # Compute mean probas
-        # Update queues
-        mean_probas[2] -= sw_list[i_list]
-        mean_probas[1] -= sh_list[i_list]
-        mean_probas[0] -= ev_list[i_list]
+    if continuous:
+        for i in range(delta, n - delta):
+            # Compute mean probas
+            # Update queues
+            mean_probas[2] -= sw_list[i_list]
+            mean_probas[1] -= sh_list[i_list]
+            mean_probas[0] -= ev_list[i_list]
 
-        sw_list[i_list] = prop_sw_list[i + delta] * i_delta
-        sh_list[i_list] = prop_sh_list[i + delta] * i_delta
-        ev_list[i_list] = prop_ev_list[i + delta] * i_delta
+            sw_list[i_list] = prop_sw_list[i + delta] * i_delta
+            sh_list[i_list] = prop_sh_list[i + delta] * i_delta
+            ev_list[i_list] = prop_ev_list[i + delta] * i_delta
 
-        mean_probas[2] += sw_list[i_list]
-        mean_probas[1] += sh_list[i_list]
-        mean_probas[0] += ev_list[i_list]
+            mean_probas[2] += sw_list[i_list]
+            mean_probas[1] += sh_list[i_list]
+            mean_probas[0] += ev_list[i_list]
 
-        # Get argmax
-        index, m = 0, mean_probas[0]
-        if m < mean_probas[1]:
-            m = mean_probas[1]
-            index = 1
-        if m < mean_probas[2]:
-            index = 2
-        labels[i] = index
+            labels[i] = mean_probas[1] + 2.0 * mean_probas[2]
 
-        i_list = 0 if i_list == k - 1 else i_list + 1
+            i_list = 0 if i_list == k - 1 else i_list + 1
+    else:
+        for i in range(delta, n - delta):
+            # Compute mean probas
+            # Update queues
+            mean_probas[2] -= sw_list[i_list]
+            mean_probas[1] -= sh_list[i_list]
+            mean_probas[0] -= ev_list[i_list]
+
+            sw_list[i_list] = prop_sw_list[i + delta] * i_delta
+            sh_list[i_list] = prop_sh_list[i + delta] * i_delta
+            ev_list[i_list] = prop_ev_list[i + delta] * i_delta
+
+            mean_probas[2] += sw_list[i_list]
+            mean_probas[1] += sh_list[i_list]
+            mean_probas[0] += ev_list[i_list]
+
+            # Get argmax
+            index, m = 0, mean_probas[0]
+            if m < mean_probas[1]:
+                m = mean_probas[1]
+                index = 1
+            if m < mean_probas[2]:
+                index = 2
+            labels[i] = index
+
+            i_list = 0 if i_list == k - 1 else i_list + 1
     # Fill boundary labels
     for i in range(delta):
         labels[i], labels[n - i - 1] = labels[delta], labels[n - delta - 1]
     corr = pd.DataFrame()
-    corr["epoch"] = timed_proba["epoch"]
+    corr["epoch"] = t_proba_shock["epoch"]
     corr["label"] = labels
     return corr
 

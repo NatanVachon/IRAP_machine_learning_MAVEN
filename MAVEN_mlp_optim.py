@@ -81,21 +81,6 @@ def batch_size_opti(batch_sizes, dataset=None):
     plot_histories(histories, batch_sizes)
     return histories
 
-def plot_histories(histories, legends):
-    plt.figure()
-    for i in range(len(histories)):
-        plt.plot(histories[i].history['acc'])
-    plt.grid()
-    plt.legend(legends, loc='upper left')
-    #plt.ylim(0.95, 1)
-
-    plt.figure()
-    for i in range(len(histories)):
-        plt.plot(histories[i].history['loss'])
-    plt.grid()
-    plt.legend(legends, loc='lower left')
-    #plt.ylim(0, 0.1)
-
     plt.show()
 
 if __name__ == '__main__':

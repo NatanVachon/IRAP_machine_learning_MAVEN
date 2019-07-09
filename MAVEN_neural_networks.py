@@ -220,7 +220,6 @@ def get_prob_timed(model, X_test_timed, X_train_timed):
     X_test = scaler.transform(X_test)
 
     y_prob = model.predict(X_test)
-#    y_prob_timed['prob'] = [max(y_prob[i]) for i in range(X_test.shape[0])]
     y_prob_timed['prob_ev'] = [y_prob[i][0] for i in range(X_test.shape[0])]
     y_prob_timed['prob_sh'] = [y_prob[i][1] for i in range(X_test.shape[0])]
     y_prob_timed['prob_sw'] = [y_prob[i][2] for i in range(X_test.shape[0])]
@@ -237,10 +236,10 @@ Saving the model to a dedicated file
 def save_model(filepath, model):
     model.save(filepath)
 
-"""
-Loading the model from a specific file
-"""
 def load_model(filepath = LOAD_MODEL_PATH):
+    """
+    Loading the model from a specific file
+    """
     model = ks.models.load_model(filepath, custom_objects={'jaccard_distance': jaccard_distance})
     return model
 

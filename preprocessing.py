@@ -36,9 +36,9 @@ def split_data(raw_data, test_size = 0.3, ordered = False, start_index = 0):
         # Returned raw
         print(type(raw_data[0]))
         return raw_data
-    
+
     y = pd.DataFrame()
-    
+
     if(type(raw_data) is tuple):
         # Everything is already split
         X_train_timed = raw_data[0].drop("label", axis=1)
@@ -76,7 +76,7 @@ def split_data(raw_data, test_size = 0.3, ordered = False, start_index = 0):
 
         else:
             X_train_timed, X_test_timed, y_train_timed, y_test_timed = train_test_split(X,y,test_size = test_size)
-    
+
     return X_train_timed, X_test_timed, y_train_timed, y_test_timed
 
 
@@ -132,7 +132,7 @@ def one_hot_encode(labels):
     return y
 
 def compute_weights(Y_train):
-    
+
     # Create a weight list for unbalanced datasets
     weight_list = []
     class_info = np.unique(Y_train['label'],return_counts=1)
@@ -142,6 +142,5 @@ def compute_weights(Y_train):
     weight_list = np.array(weight_list)
     return weight_list
 
-    
-    
-    
+
+
