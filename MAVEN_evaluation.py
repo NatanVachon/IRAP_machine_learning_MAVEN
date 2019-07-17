@@ -17,40 +17,17 @@ import preprocessing as prp
 import mlp
 
 LIST_PATH = "../Data/datasets/ShockMAVEN_dt1h_list.txt"
-#LIST_PATH = "../Data/datasets/ShockMAVEN_list.txt"
-
-def raw_eval(pred_list, dt_tol, list_path=LIST_PATH):
-    pred_list.sort()
-
-    pred_data = pd.DataFrame()
-    pred_data["epoch"] = [pd.Timestamp(pred_list[i]).timestamp() for i in range(len(pred_list))]
-    pred_data.index = [i for i in range(pred_data.count()[0])]
-    # Gather shock epoch
-    true_data = pd.read_csv(list_path)
-    for i in range(true_data.count()[0]):
-        true_data.at[i, "epoch"] = pd.Timestamp(true_data.at[i, "epoch"]).timestamp()
-    # Find begin and end index
-    begin_epoch = next(i - 1 for i, e in true_data.iterrows() if e["epoch"] > pred_data.at[0, "epoch"])
-    end_epoch = next(i - 1 for i, e in true_data.iterrows() if e["epoch"] > pred_data.at[pred_data.count()[0]-1, "epoch"])
-    true_cross = true_data.loc[begin_epoch:end_epoch,:]
-    true_cross.index = [i for i in range(true_cross.count()[0])]
-
-    #Compute metrics
-    acc, recall = 0, 0
-    if(true_cross.count()[0] != 0 and pred_data.count()[0] != 0):
-        # Add an element so the end of each list is the same for the rupture's function
-        true_cross.at[true_cross.count()[0]-1, "epoch"] = pred_data.at[pred_data.count()[0]-1, "epoch"]
-        # Compute metrics
-        acc, recall = precision_recall(true_cross["epoch"], pred_data["epoch"], dt_tol)
-    else:
-        acc, recall = -1, -1
-    print("Accuracy: " + str(acc))
-    print("Recall: " + str(recall))
-    return acc, recall
 
 """
+Computes metrics comparing predicted shock epochs and a catalog
+Inputs:
+    epochs: Predicted shock epochs
+    dt_tol: Delta time in which we consider the shocks detected
+    list_path: Path of the catalog
+Returns:
+    false_epochs: False positive detected shocks so you can check on AMDA what is wrong
 """
-def metrics_from_epoch(epochs, dt_tol, list_path=LIST_PATH, lerp_delta=0.5):
+def metrics_from_epoch(epochs, dt_tol, list_path=LIST_PATH):
     epochs = [pd.Timestamp(epochs[i]).timestamp() for i in range(len(epochs))]
 
     true_data = pd.read_csv(list_path)
@@ -85,8 +62,19 @@ def metrics_from_epoch(epochs, dt_tol, list_path=LIST_PATH, lerp_delta=0.5):
     return false_epochs
 
 """
+Same as metrics_from_epoch but with prediction before metrics evaluation
+Inputs:
+    manager: Training manager containing the model
+    data: Data to predict
+    dt_corr: Postprocessing time constant
+    dt_tol: Detection tolerance
+    list_path: Path of the catalog
+    postprocessed: Use postprocessing if true
+Returns:
+    acc: Accuracy
+    recall: Recall
 """
-def metrics_from_manager(manager, data, dt_corr, dt_tol, list_path=LIST_PATH, lerp_delta=0.5, postprocessed=True):
+def metrics_from_manager(manager, data, dt_corr, dt_tol, list_path=LIST_PATH, postprocessed=True):
     if "label" in data.columns:
         data = data.drop("label", axis=1)
     if postprocessed:
@@ -96,7 +84,7 @@ def metrics_from_manager(manager, data, dt_corr, dt_tol, list_path=LIST_PATH, le
     pred_data["epoch"] = data["epoch"]
     pred_var = get_var(pred_data)
     pred_var = get_category(pred_var)
-    pred_cross = crossings_from_var(pred_var, lerp_delta)
+    pred_cross = crossings_from_var(pred_var)
     # Gather shock epoch
     true_data = pd.read_csv(list_path)
     for i in range(true_data.count()[0]):
@@ -234,7 +222,7 @@ Process:
 'category' needed
 Returns a dataframe of crossings with their epoch and direction : 0 for inbound, 1 for outbound
 """
-def crossings_from_var(var, lerp_delta=0.5):
+def crossings_from_var(var):
     begin, end = [], []
     direction = []
     bPass = False
@@ -269,6 +257,18 @@ def crossings_from_var(var, lerp_delta=0.5):
     return crossings
 
 """
+Corrects a variations list to reduce the number of quick oscillations by applying the following process:
+    Get a variation var_i
+    Define a time interval [var_i[t], var_i[t] + Dt]
+    For all following variations in this interval, check if they cancel each other
+        ex : 2->1->0->2
+    Delete all the variations that satisfy this condition
+
+Inputs:
+    var : pandas.DataFrame with at least the columns 'epoch', 'prec_class' and 'follow_class'
+    Dt  : time interval to consider in seconds
+Returns:
+    pd.DataFrame Postprocessed variations
 """
 def corrected_var(var, Dt):
     epoch_to_skip = []
@@ -296,6 +296,17 @@ def corrected_var(var, Dt):
     return clean_var
 
 """
+Computes crossings using a postprocessing step.
+Considering a time constant dt, if two shocks are closer than dt, we convert these two shocks
+in a new one which is the average of the two shocks.
+This means that the begin epoch of the new shock is the average of the begin epochs of the old shocks
+and this is the same for the end epoch
+
+Inputs:
+    cross: Raw crossings
+    dt: Time constant used to reduce shock nb
+Returns:
+    final_df: Postprocessed predicted crossings
 """
 def corrected_crossings(cross, dt):
     center_epochs = [[0.5 * (cross.at[k, "begin"] + cross.at[k, "end"]), 1] for k in range(len(cross))]
@@ -407,8 +418,7 @@ def basic_evaluate(y_test, y_pred, verbose=0):
     gp = (p[0]*nb0 + p[1]*nb1 + p[2]*nb2)/y_pred.count()[0]
     gr = (r[0]*nb0 + r[1]*nb1 + r[2]*nb2)/y_pred.count()[0]
     gf = (f[0]*nb0 + f[1]*nb1 + f[2]*nb2)/y_pred.count()[0]
-    """
-    """
+
     if(verbose==1):
         print('\nClass indices :   0 = Close Environment  or  0 = Close Environment')
         print('                  1 = Bow Shock              1 = inward Bow Shock')
@@ -554,17 +564,6 @@ def k_fold_shocks(manager, k, data, weights=False):
         manager.model, _ = mlp.run_training(train_dataset, layers_sizes=manager.params["layers_sizes"],layers_activations=manager.params["layers_activations"],
                                                   epochs_nb=manager.params["epochs_nb"], batch_size=manager.params["batch_size"], verbose=1)
 
-# =============================================================================
-#         # Compute predictions and metrics
-#         pred = manager.get_pred(timed_data[1].drop("epoch", axis=1))
-#         cm = confusion_matrix(timed_data[3]["label"], pred["label"])
-#         cms.append(cm)
-#
-#         corr_pred = S.corrected_prediction(manager, timed_data[1], 70, plot=False)
-#         cm = confusion_matrix(timed_data[3]["label"], corr_pred["label"])
-#         cmsPP.append(cm)
-#         histories.append(history)
-# =============================================================================
         acc, recall = metrics_from_manager(manager, timed_data[1], 120, 5*60, postprocessed=False)
         accPP, recallPP = metrics_from_manager(manager, timed_data[1], 120, 5*60, postprocessed=True)
         accs.append(acc)

@@ -9,20 +9,12 @@ GRUSBECK_LIST_PATH = "../Data/datasets/MAVEN_shockGRUESBECK.txt"
 FANG_LIST_PATH = "../Data/datasets/MAVEN_shockFANG.txt"
 
 import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
-from keras.utils.vis_utils import plot_model
 from sklearn.metrics import accuracy_score, recall_score
 
-import MAVEN_communication_AMDA as acom
 import MAVEN_prediction as pred
 import MAVEN_evaluation as ev
 import MAVEN_scripts as S
-import TrainingManagment as tm
-import numpy as np
-
-def load_dataset(n):
-    return pd.read_csv("../Data/datasets/MAVEN_V4_datasets/MAVEN_V4_" + str(n) + "00.txt").drop("SWIA_qual", axis=1)
 
 def save_epoch_label(data, filepath):
     file = open(filepath, 'w')
@@ -56,32 +48,6 @@ def unique_time_event(dt = 40 * 60, grusbeck_list = GRUSBECK_LIST_PATH, fang_lis
             gru_common.append(g.strftime("%Y-%m-%dT%H:%M:%S"))
             fang_common.append(fang_common_epoch.strftime("%Y-%m-%dT%H:%M:%S"))
     return common_shocks, gru_common, fang_common
-
-def rupture_detection_comparison(common_shocks, gru_common, fang_common, sample_nb):
-    ruptures_epochs = []
-    for i in range(sample_nb):
-        print("Sample " + str(i + 1) + '/' + str(sample_nb))
-        shock_begin, shock_end = str(pd.Timestamp(common_shocks[i]) - pd.Timedelta('20m')).replace(' ', 'T'), str(pd.Timestamp(common_shocks[i]) + pd.Timedelta('20m')).replace(' ', 'T')
-        shock_data = acom.download_multiparam_df(shock_begin, shock_end)
-        shock_epoch = shock_data.at[int(pred.compute_shock_position(shock_data)), 'epoch']
-        ruptures_epochs.append(shock_epoch)
-
-    # Compute deltas
-    gru_deltas = []
-    fang_deltas = []
-    for i in range(sample_nb):
-        gru_deltas.append(pd.Timestamp(gru_common[i]).timestamp() - pd.Timestamp(ruptures_epochs[i]).timestamp())
-        fang_deltas.append(pd.Timestamp(fang_common[i]).timestamp() - pd.Timestamp(ruptures_epochs[i]).timestamp())
-    # Plot distribution
-    plot_deltas_distribution(gru_deltas, fang_deltas)
-    return ruptures_epochs, gru_deltas, fang_deltas
-
-def plot_deltas_distribution(gru_deltas, fang_deltas):
-    sns.distplot(gru_deltas, label="Grusbeck")
-    sns.distplot(fang_deltas, label="Fang")
-    plt.legend()
-    plt.grid()
-    return
 
 def get_shock_epochs(data):
     var = ev.get_var(data)
@@ -122,7 +88,6 @@ def plot_trial(trial):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(X, Y, losses)
-    #ax.plot_trisurf(X, Y, losses)
     ax.grid()
     plt.show()
     return
@@ -133,14 +98,11 @@ def plot_histories(histories, legends):
         plt.plot(histories[i].history['acc'])
     plt.grid()
     plt.legend(legends, loc='upper left')
-    #plt.ylim(0.95, 1)
-
     plt.figure()
     for i in range(len(histories)):
         plt.plot(histories[i].history['loss'])
     plt.grid()
     plt.legend(legends, loc='lower left')
-    #plt.ylim(0, 0.1)
 
 def test_lerp(manager, data, n):
     accs, recalls = [], []
@@ -171,8 +133,21 @@ def duplicate_epochs(filepath):
     fd.close()
     return
 
-def plot_model_shape(model, filepath):
-    plot_model(model, to_file=filepath, show_shapes=True, show_layer_names=True)
+def get_begin_end(filepath, name):
+    out = open("../Data/amda_data/" + name, "w")
+    data = pd.read_csv(filepath)
+
+    for i in range(len(data)):
+        out.write(data.at[i, "begin"] + " " + data.at[i, "end"] + "\n")
+    return
+
+def create_timetable(filepath, name):
+    out = open("../Data/amda_data/timetables/" + name, "w")
+    data = pd.read_csv(filepath)
+
+    for i in range(len(data)):
+        t = str(pd.to_datetime(0.5 * (pd.Timestamp(data.at[i, "begin"]).timestamp() + pd.Timestamp(data.at[i, "end"]).timestamp()), unit='s'))
+        out.write(t + " " + t + "\n")
     return
 
 def plot_histograms(datas):
@@ -217,22 +192,6 @@ def plot_acc_recall(accs, recalls):
     plt.show()
     return
 
-def co_learning_matrix(I, J):
-    manager = tm.TrainingManager()
-    manager["batch_size"] = 256
-    manager["epochs_nb"] = 50
-    manager["layers_sizes"] = [8, 7, 5, 3]
-    A, R = np.zeros((max(I), max(J))), np.zeros((max(I), max(J)))
-    for i in I:
-        data_train = load_dataset(i)
-        for j in J:
-            data_test = load_dataset(j)
-            _ = S.train_nn(manager, data_train)
-            acc, recall = ev.metrics_from_list(manager, data_test, 60, 5*60)
-            A[i-1, j-1] = acc
-            R[i-1, j-1] = recall
-    return A, R
-
 def recompute_probas():
     raw_data = pd.read_csv("../Data/datasets/MAVEN_V4_datasets/MAVEN_V4_FULL.txt")
     data = raw_data.copy().drop("label", axis=1)
@@ -276,18 +235,9 @@ def clean_dataset():
     output_df.to_csv("MAVEN_FULL.txt", encoding = 'utf-8', index = False)
     return output_df
 
-def suppr(data, pred):
-    plt.figure()
-    for i in range(len(data.columns) - 1):
-        ax = plt.subplot(len(data.columns), 1, i + 1)
-        ax.plot(data["epoch"], data.iloc[:, i + 1])
-        plt.grid()
-    ax = plt.subplot(len(data.columns), 1, len(data.columns))
-    ax.plot(pred["epoch"], pred["label"], "g-")
-    plt.ylim(0, 2)
-    plt.grid()
-    plt.show()
+def convert_epochs(file, save_path):
+    data = pd.read_csv(file)
+    for i in range(len(data)):
+        data.at[i, "epoch"] = pd.to_datetime(data.at[i, "epoch"], unit='s')
+    data.to_csv(save_path, encoding="utf-8", index=False)
     return
-
-
-

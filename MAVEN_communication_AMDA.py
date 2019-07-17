@@ -125,9 +125,8 @@ def download_multiparam_df(start_time, end_time, param_list = PARAMETER_NAMES, p
 Saves a pandas.DataFrame() to a certain path
 """
 def save_df(dataset, path, name):
-    saved_df = dataset.copy()
     # Save data
-    saved_df.to_csv(path + name + '.txt', encoding = 'utf-8', index = False)
+    dataset.to_csv(path + name + '.txt', encoding = 'utf-8', index = False)
     return
 
 """
